@@ -1,0 +1,125 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* paper + ink */
+  --paper: #fbfaf7;
+  --paper-raised: #ffffff;
+  --ink: #1d1d28;
+  --ink-soft: #4b4b5e;
+  --ink-faint: #8a8a9b;
+  --rule: #e4e1d8;
+
+  /* semantic colors — used ONLY to encode meaning */
+  --ax-x: #d9483f; /* x-hat */
+  --ax-y: #2f9e44; /* y-hat */
+  --ax-z: #3b6fd4; /* z-hat */
+  --frame-s: #50525e; /* fixed space frame {s} */
+  --frame-b: #c2571c; /* moving body frame {b} */
+  --accent: #6741d9; /* interactive / emphasis */
+  --good: #2f9e44;
+}
+
+html {
+  background: var(--paper);
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: "Charter", "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+  font-size: 17px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.ui {
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+.mono {
+  font-family: "JetBrains Mono", "Cascadia Code", "Fira Code", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- article prose ---------- */
+
+.prose-mr {
+  max-width: 700px;
+}
+
+.prose-mr p {
+  margin: 0 0 1.1em;
+}
+
+.prose-mr h1 {
+  font-size: 2.1rem;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.35em;
+}
+
+.prose-mr h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin: 2.2em 0 0.6em;
+}
+
+.prose-mr .katex {
+  font-size: 1.04em;
+}
+
+.prose-mr .katex-display {
+  margin: 1.2em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 0;
+}
+
+/* semantic inline colors for math/prose */
+.cx { color: var(--ax-x); }
+.cy { color: var(--ax-y); }
+.cz { color: var(--ax-z); }
+.cs { color: var(--frame-s); }
+.cb { color: var(--frame-b); }
+
+::selection {
+  background: #e5dbff;
+}
+
+/* thin scrollbars for panels */
+.thin-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.thin-scroll::-webkit-scrollbar-thumb { background: #d4d0c4; border-radius: 4px; }
+.thin-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* range slider, consistent across widgets */
+input[type="range"].slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: #ddd9cc;
+  outline: none;
+  cursor: pointer;
+}
+input[type="range"].slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2.5px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+input[type="range"].slider::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2.5px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
