@@ -95,6 +95,13 @@ export const fkSpace = (M: SE3, Slist: Vec6[], thetas: number[]): SE3 => {
   return se3Mul(T, M);
 };
 
+/** Forward kinematics, body form: T = M e^{[B1]t1} ... e^{[Bn]tn}. */
+export const fkBody = (M: SE3, Blist: Vec6[], thetas: number[]): SE3 => {
+  let T = M;
+  for (let i = 0; i < Blist.length; i++) T = se3Mul(T, exp6(Blist[i], thetas[i]));
+  return T;
+};
+
 /** Space Jacobian: column i = Ad_{e^{[S1]t1}...e^{[S_{i-1}]t_{i-1}}} S_i. */
 export const jacobianSpace = (Slist: Vec6[], thetas: number[]): Vec6[] => {
   const cols: Vec6[] = [];

@@ -78,6 +78,29 @@ export function Arrow({
   );
 }
 
+/** Children posed at (R, p) — row-major Mat3 + position, math coords. */
+export function PosedGroup({
+  R = [1, 0, 0, 0, 1, 0, 0, 0, 1],
+  p = [0, 0, 0],
+  children,
+}: {
+  R?: number[];
+  p?: [number, number, number];
+  children: ReactNode;
+}) {
+  return (
+    <group
+      matrixAutoUpdate={false}
+      ref={g => {
+        if (g)
+          g.matrix.set(R[0], R[1], R[2], p[0], R[3], R[4], R[5], p[1], R[6], R[7], R[8], p[2], 0, 0, 0, 1);
+      }}
+    >
+      {children}
+    </group>
+  );
+}
+
 /** A coordinate frame triad at `origin` with rotation R (row-major Mat3, math coords). */
 export function Triad({
   R = [1, 0, 0, 0, 1, 0, 0, 0, 1],

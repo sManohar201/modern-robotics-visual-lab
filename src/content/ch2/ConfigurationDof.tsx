@@ -1,10 +1,15 @@
 import { useRef, useState } from "react";
-import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef } from "../../components/prose";
-import { WidgetShell, ControlBar, Readout, WidgetButton } from "../../components/widgets/WidgetShell";
+import { Line, Html } from "@react-three/drei";
+import { PageHeader, H2, M, Eq, KeyIdea, BookRef } from "../../components/prose";
+import { WidgetShell, ControlBar, Readout, WidgetButton, LabeledSlider } from "../../components/widgets/WidgetShell";
 import { Challenge } from "../../components/widgets/Challenge";
 import { Quiz } from "../../components/widgets/Quiz";
+import { Scene3D, Triad, AXIS_COLORS } from "../../components/three/Scene3D";
 import { svgCoords } from "../../lib/svg";
-import { deg, wrapAngle, rad } from "../../lib/math/vec";
+import {
+  deg, wrapAngle, rad,
+  type Vec3, vadd, vsub, vscale, vdot, vcross, vunit, vnorm,
+} from "../../lib/math/vec";
 
 export default function ConfigurationDof() {
   return (
@@ -61,6 +66,15 @@ export default function ConfigurationDof() {
         <strong>1 freedom</strong>. Every point after that is fixed.
       </p>
       <Eq>{"3 + 2 + 1 = 6 \\quad \\text{— a free rigid body in space has 6 dof.}"}</Eq>
+
+      <p>
+        The same builder, now in space. There is nothing to drag here — instead each freedom is its
+        own slider, so the <em>number of sliders you control</em> is the dof. Add the points one at
+        a time and watch the slider count climb 3 → 5 → 6:
+      </p>
+
+      <RigidBodyBuilder3D />
+
       <p>
         This is why "6-DOF" is the magic number in robotics: to put a tool at an arbitrary position{" "}
         <em>and</em> orientation in space, a robot needs at least six degrees of freedom. Three of
@@ -68,14 +82,28 @@ export default function ConfigurationDof() {
         (how it is turned).
       </p>
 
-      <H2>Joints are constraint machines</H2>
+      <H2>From dof to configuration space</H2>
       <p>
-        A robot is a collection of rigid links glued together by joints, and{" "}
-        <strong>every joint removes freedoms</strong>. A revolute (hinge) joint between two spatial
-        bodies lets exactly 1 relative motion survive out of 6 — it <em>provides</em>{" "}
-        <M>{"f = 1"}</M> freedom and <em>removes</em> <M>{"6 - f = 5"}</M>. A spherical
-        (ball-and-socket) joint provides <M>{"f = 3"}</M>. This bookkeeping is the engine behind
-        Grübler's formula on the next page.
+        The <M>{"n"}</M> coordinates of a configuration are the components of a single point{" "}
+        <M>{"q = (q_1, \\ldots, q_n)"}</M> living in the robot's <strong>configuration space</strong>{" "}
+        (C-space) <M>{"\\mathcal{C}"}</M> — the set of <em>all</em> configurations the robot can
+        attain. The dimension of this space is the dof. Choosing a configuration means choosing a
+        point in <M>{"\\mathcal{C}"}</M>; executing a motion means tracing a path through it.
+      </p>
+      <p>
+        The dimension alone does not completely characterize C-space. A coin's angle lives on a{" "}
+        <em>circle</em>, not a line: rotate by <M>{"2\\pi"}</M> and you return to the start. A
+        prismatic joint's displacement lives on a <em>line</em>, not a circle. These are both
+        one-dimensional, but topologically different — one wraps around, the other does not. For a
+        2R robot arm with two revolute joints, the C-space is a two-dimensional torus (a donut),
+        not a flat square. The shape of C-space is the subject of the topology page; for now, the
+        essential point is that dimension and shape are two separate properties, both of which
+        matter for planning and control.
+      </p>
+      <p>
+        The next pages build the machinery for computing dof for complete robot mechanisms: the
+        joint types that connect links (and how many freedoms each grants), and Grübler's formula
+        for summing everything together.
       </p>
 
       <Quiz
@@ -127,24 +155,6 @@ export default function ConfigurationDof() {
           },
         ]}
       />
-
-      <H2>From dof to C-space</H2>
-      <p>
-        The <M>{"n"}</M> numbers of a configuration are coordinates of a single point{" "}
-        <M>{"q = (q_1, \\ldots, q_n)"}</M> living in the <strong>configuration space</strong>{" "}
-        (C-space) <M>{"\\mathcal{C}"}</M> — the set of <em>all</em> configurations the robot can
-        attain. One point of C-space ↔ one complete physical pose of the whole machine. The dof is
-        simply the <em>dimension</em> of this space.
-      </p>
-      <Aside>
-        The dimension is not the whole story — C-space also has a <em>shape</em>. The coin's angle
-        coordinate lives on a circle, not a line: turn it by <M>{"2\\pi"}</M> and you are back
-        where you started. The shape of C-space is the subject of the{" "}
-        <a href="#/ch2-topology" className="text-[var(--accent)] underline">
-          topology page
-        </a>
-        .
-      </Aside>
 
       <BookRef>Modern Robotics §2.1 — Degrees of Freedom of a Rigid Body.</BookRef>
     </div>
@@ -319,6 +329,190 @@ function RigidBodyBuilder() {
         Go to stage 3, then steer the body into the dashed region with orientation{" "}
         <M>{"\\varphi \\approx 135^\\circ"}</M> (±8°). Notice you only ever control 3 numbers —
         that <em>is</em> the configuration.
+      </Challenge>
+    </>
+  );
+}
+
+/* ================= widget: spatial rigid body builder ================= */
+
+const D_AB3 = 1.4; // |AB|
+const ALONG = 0.6; // projection of C onto the AB axis (body constant)
+const R_CIRC = 0.8; // radius of C's constraint circle (body constant)
+const TARGET3: Vec3 = [-0.45, 0.75, 0.95];
+const TARGET_TOL = 0.3;
+
+/** Place the body from its 6 independent freedoms. */
+function buildBody(A: Vec3, alpha: number, beta: number, gamma: number) {
+  // B lives on the sphere of radius D_AB3 around A — 2 angles pin it down.
+  const u: Vec3 = [
+    Math.cos(alpha) * Math.sin(beta),
+    Math.sin(alpha) * Math.sin(beta),
+    Math.cos(beta),
+  ];
+  const B = vadd(A, vscale(u, D_AB3));
+  // C keeps fixed distance from both A and B -> it rides a circle about the AB axis.
+  const helper: Vec3 = Math.abs(u[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
+  const v = vunit(vsub(helper, vscale(u, vdot(helper, u))));
+  const w = vcross(u, v);
+  const center = vadd(A, vscale(u, ALONG));
+  const C = vadd(center, vadd(vscale(v, R_CIRC * Math.cos(gamma)), vscale(w, R_CIRC * Math.sin(gamma))));
+  return { u, v, w, B, center, C };
+}
+
+/** A thin connecting bar (drei Line) between two points. */
+function Bar({ a, b, color }: { a: Vec3; b: Vec3; color: string }) {
+  return <Line points={[a, b]} color={color} lineWidth={2.5} />;
+}
+
+function Dot({ p, color, r = 0.075, label }: { p: Vec3; color: string; r?: number; label?: string }) {
+  return (
+    <group position={p}>
+      <mesh>
+        <sphereGeometry args={[r, 20, 20]} />
+        <meshStandardMaterial color={color} />
+      </mesh>
+      {label && (
+        <Html center distanceFactor={8} style={{ pointerEvents: "none" }}>
+          <span
+            style={{
+              font: "italic 600 14px Georgia, serif",
+              color,
+              transform: "translate(14px,-14px)",
+              display: "inline-block",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {label}
+          </span>
+        </Html>
+      )}
+    </group>
+  );
+}
+
+function RigidBodyBuilder3D() {
+  const [stage, setStage] = useState(1);
+  const [A, setA] = useState<Vec3>([0, 0, 0]);
+  const [alpha, setAlpha] = useState(rad(35)); // azimuth of AB
+  const [beta, setBeta] = useState(rad(65)); // polar angle of AB
+  const [gamma, setGamma] = useState(rad(40)); // C around the AB axis
+
+  const { v, w, B, center, C } = buildBody(A, alpha, beta, gamma);
+
+  // C's constraint circle, sampled for drawing
+  const circlePts: Vec3[] = [];
+  for (let i = 0; i <= 64; i++) {
+    const t = (i / 64) * 2 * Math.PI;
+    circlePts.push(vadd(center, vadd(vscale(v, R_CIRC * Math.cos(t)), vscale(w, R_CIRC * Math.sin(t)))));
+  }
+
+  const dofSoFar = stage === 1 ? 3 : stage === 2 ? 5 : 6;
+  const met = stage === 3 && vnorm(vsub(C, TARGET3)) < TARGET_TOL;
+
+  const reset = () => {
+    setStage(1);
+    setA([0, 0, 0]);
+    setAlpha(rad(35));
+    setBeta(rad(65));
+    setGamma(rad(40));
+  };
+
+  return (
+    <>
+      <WidgetShell
+        title="Freedoms of a rigid body in space"
+        onReset={reset}
+        caption={
+          <>
+            <span className="cx font-semibold">A</span> is free in space (3 sliders). <span className="cy font-semibold">B</span> is
+            chained to its <em>sphere</em> around A (2 sliders). <span className="cz font-semibold">C</span> is chained to the{" "}
+            <em>circle</em> where two spheres meet (1 slider). Drag the view to orbit.
+          </>
+        }
+      >
+        <Scene3D height={360} camera={[3.4, 2.6, 3.4]}>
+          <Triad ghost colors={["#dcb6b4", "#b8d4bd", "#b4c4dd"]} scale={1.2} />
+
+          {/* B's constraint sphere around A */}
+          {stage >= 2 && (
+            <mesh position={A}>
+              <sphereGeometry args={[D_AB3, 32, 24]} />
+              <meshStandardMaterial color="#2f9e44" transparent opacity={0.07} />
+              <meshBasicMaterial color="#2f9e44" wireframe transparent opacity={0.12} />
+            </mesh>
+          )}
+
+          {/* C's constraint circle */}
+          {stage === 3 && <Line points={circlePts} color="#3b6fd4" lineWidth={1.5} dashed dashSize={0.12} gapSize={0.08} />}
+
+          {/* the rigid body */}
+          {stage === 3 && (
+            <>
+              <Bar a={A} b={B} color="#50525e" />
+              <Bar a={A} b={C} color="#9a93a8" />
+              <Bar a={B} b={C} color="#9a93a8" />
+              <mesh>
+                <bufferGeometry>
+                  <bufferAttribute
+                    attach="attributes-position"
+                    args={[new Float32Array([...A, ...B, ...C]), 3]}
+                  />
+                </bufferGeometry>
+                <meshBasicMaterial color="#6741d9" transparent opacity={0.16} side={2} />
+              </mesh>
+            </>
+          )}
+          {stage === 2 && <Bar a={A} b={B} color="#50525e" />}
+
+          {/* target marker */}
+          {stage === 3 && (
+            <mesh position={TARGET3}>
+              <sphereGeometry args={[TARGET_TOL, 20, 16]} />
+              <meshBasicMaterial color={met ? "#2f9e44" : "#cdb96e"} wireframe transparent opacity={met ? 0.5 : 0.3} />
+            </mesh>
+          )}
+
+          {/* points */}
+          <Dot p={A} color={AXIS_COLORS.x} label="A" />
+          {stage >= 2 && <Dot p={B} color={AXIS_COLORS.y} label="B" />}
+          {stage === 3 && <Dot p={C} color={AXIS_COLORS.z} label="C" />}
+        </Scene3D>
+
+        <ControlBar>
+          <WidgetButton onClick={() => setStage(1)} active={stage === 1}>1 · point A</WidgetButton>
+          <WidgetButton onClick={() => setStage(2)} active={stage === 2}>2 · add B</WidgetButton>
+          <WidgetButton onClick={() => setStage(3)} active={stage === 3}>3 · full body</WidgetButton>
+          <span className="flex-1" />
+          <Readout label="dof so far" value={String(dofSoFar)} />
+        </ControlBar>
+
+        <div className="ui mt-3 flex flex-wrap gap-x-8 gap-y-2">
+          <LabeledSlider label={<span className="cx">x_A</span>} value={A[0]} min={-1.5} max={1.5}
+            onChange={x => setA(([, y, z]) => [x, y, z])} color={AXIS_COLORS.x} />
+          <LabeledSlider label={<span className="cx">y_A</span>} value={A[1]} min={-1.5} max={1.5}
+            onChange={y => setA(([x, , z]) => [x, y, z])} color={AXIS_COLORS.x} />
+          <LabeledSlider label={<span className="cx">z_A</span>} value={A[2]} min={-1.5} max={1.5}
+            onChange={z => setA(([x, y]) => [x, y, z])} color={AXIS_COLORS.x} />
+          {stage >= 2 && (
+            <>
+              <LabeledSlider label={<span className="cy">α</span>} value={alpha} min={-Math.PI} max={Math.PI}
+                onChange={setAlpha} fmt={a => `${deg(a).toFixed(0)}°`} color={AXIS_COLORS.y} />
+              <LabeledSlider label={<span className="cy">β</span>} value={beta} min={0.05} max={Math.PI - 0.05}
+                onChange={setBeta} fmt={a => `${deg(a).toFixed(0)}°`} color={AXIS_COLORS.y} />
+            </>
+          )}
+          {stage === 3 && (
+            <LabeledSlider label={<span className="cz">γ</span>} value={gamma} min={-Math.PI} max={Math.PI}
+              onChange={setGamma} fmt={a => `${deg(a).toFixed(0)}°`} color={AXIS_COLORS.z} />
+          )}
+        </div>
+      </WidgetShell>
+
+      <Challenge id="ch2-dof-3d" met={met}>
+        Reach stage 3, then land point <span className="cz font-semibold">C</span> inside the gold
+        target sphere. You will need to coordinate all six sliders at once — six numbers, exactly the
+        configuration of a rigid body in space.
       </Challenge>
     </>
   );

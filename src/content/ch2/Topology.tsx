@@ -95,6 +95,73 @@ export default function Topology() {
         <M>{"S^1 \\times S^1 = T^2"}</M>, the torus.
       </KeyIdea>
 
+      <H2>The vocabulary of C-space shapes</H2>
+      <p>
+        The torus <M>{"T^2"}</M> appearing above is one of several standard topological spaces
+        that appear repeatedly as C-spaces in robotics. They have standard names and notation,
+        and they combine under a product <M>{"\\times"}</M> that means "one copy of each,
+        independently."
+      </p>
+      <p>
+        <M>{"\\mathbb{R}^n"}</M> is ordinary <M>{"n"}</M>-dimensional Euclidean space: a flat,
+        unbounded space with no periodicity. Prismatic joint displacements live here — there is no
+        wrap-around. A point mass moving freely in the plane has C-space <M>{"\\mathbb{R}^2"}</M>.
+      </p>
+      <p>
+        <M>{"S^1"}</M> is the circle: a one-dimensional space that wraps around. A single revolute
+        joint's angle lives on <M>{"S^1"}</M>, not on a line — because{" "}
+        <M>{"\\theta = 0"}</M> and <M>{"\\theta = 2\\pi"}</M> are the same physical
+        configuration.
+      </p>
+      <p>
+        <M>{"S^2"}</M> is the surface of a sphere in 3D: a two-dimensional space with no
+        boundary and no flat global chart. The direction a unit vector points lives on{" "}
+        <M>{"S^2"}</M>. It is not the same as a flat square — you cannot cover a sphere with a
+        single flat map without distortion or cuts.
+      </p>
+      <p>
+        <M>{"T^n = S^1 \\times S^1 \\times \\cdots \\times S^1"}</M> (<M>{"n"}</M> times) is
+        the <M>{"n"}</M>-torus: the C-space of <M>{"n"}</M> independent revolute joints. The
+        2-torus <M>{"T^2"}</M> is the donut we just saw. The 3-torus <M>{"T^3"}</M> is the
+        C-space of a 3R arm — impossible to visualize directly, but well-defined mathematically.
+      </p>
+      <p>
+        A critical non-identity worth memorizing:
+      </p>
+      <Eq>{"S^1 \\times S^1 = T^2 \\;\\neq\\; S^2"}</Eq>
+      <p>
+        A torus and a sphere are both two-dimensional surfaces, but they are topologically
+        distinct — a torus has a hole, a sphere does not. The C-space of a 2R arm is a torus,
+        not a sphere. This matters: a path on a torus can thread through the hole; no path on a
+        sphere can. The cleanest way to see the difference is to try to shrink a loop:
+      </p>
+
+      <SphereVsTorus />
+
+      <H2>Common C-space topologies</H2>
+      <p>
+        Given a robot's joint arrangement, its C-space topology follows immediately from the
+        joint types: each revolute joint contributes a factor of <M>{"S^1"}</M>, each prismatic
+        joint a factor of <M>{"\\mathbb{R}"}</M>, and so on. The table below lists the most
+        common cases.
+      </p>
+      <p>
+        A <strong>PR robot</strong> (prismatic then revolute) has C-space{" "}
+        <M>{"\\mathbb{R} \\times S^1"}</M>: one slider direction and one angle. A{" "}
+        <strong>2R arm</strong> has <M>{"S^1 \\times S^1 = T^2"}</M>. A{" "}
+        <strong>3R arm</strong> has <M>{"T^3"}</M>. A <strong>planar rigid body</strong> free to
+        slide and rotate has <M>{"\\mathbb{R}^2 \\times S^1"}</M>: two translations on a flat
+        plane, plus orientation on a circle. The angle wraps; the position does not.
+      </p>
+      <p>
+        A <strong>spatial rigid body</strong> free in 3D has six DOF, but its C-space is not{" "}
+        <M>{"\\mathbb{R}^6"}</M>. Three translational DOF live in{" "}
+        <M>{"\\mathbb{R}^3"}</M>. The three rotational DOF live in the rotation group{" "}
+        <M>{"SO(3)"}</M> — which has the topology of <M>{"\\mathbb{R}P^3"}</M>, a
+        three-dimensional space that is neither a torus nor a sphere. We return to this in Chapter
+        3 when we study rotation matrices.
+      </p>
+
       <H2>Why a planner must care</H2>
       <p>
         Any algorithm that measures distances, interpolates between configurations, or searches
@@ -309,6 +376,88 @@ function TorusView({ q, trail }: { q: [number, number]; trail: [number, number][
           <meshStandardMaterial color="#caa53d" emissive="#caa53d" emissiveIntensity={0.4} />
         </mesh>
       </Scene3D>
+    </WidgetShell>
+  );
+}
+
+/* ================= widget: sphere vs torus — the hole matters ================= */
+
+function SphereVsTorus() {
+  const [t, setT] = useState(0);
+
+  const TR = 0.8; // torus major radius
+  const Tr = 0.34; // torus tube radius
+  const SR = 0.8; // sphere radius
+  const TX = -1.5; // torus center x
+  const SX = 1.5; // sphere center x
+
+  // torus loop: a meridian circle threading the hole. The slider slides it
+  // around the ring — its radius never changes.
+  const a = t * 2 * Math.PI;
+  const torusLoop: [number, number, number][] = [];
+  for (let i = 0; i <= 48; i++) {
+    const s = (i / 48) * 2 * Math.PI;
+    const rr = TR + (Tr + 0.018) * Math.cos(s);
+    torusLoop.push([TX + rr * Math.cos(a), rr * Math.sin(a), (Tr + 0.018) * Math.sin(s)]);
+  }
+
+  // sphere loop: a latitude circle. The same slider walks it up to the pole —
+  // it shrinks smoothly to a point.
+  const phi = t * rad(88);
+  const sphereLoop: [number, number, number][] = [];
+  for (let i = 0; i <= 48; i++) {
+    const s = (i / 48) * 2 * Math.PI;
+    sphereLoop.push([
+      SX + (SR + 0.012) * Math.cos(phi) * Math.cos(s),
+      (SR + 0.012) * Math.cos(phi) * Math.sin(s),
+      (SR + 0.012) * Math.sin(phi),
+    ]);
+  }
+
+  return (
+    <WidgetShell
+      title="Same dimension, different shape: shrink the red loop"
+      caption={
+        <>
+          One slider moves both red loops. On the sphere the loop slides to the pole and closes to
+          a point — every loop on a sphere can. On the torus the loop threads the hole: it can
+          slide around forever, but nothing can make it smaller. That obstruction <em>is</em> the
+          topological difference between <span className="mono">T²</span> and{" "}
+          <span className="mono">S²</span>.
+        </>
+      }
+    >
+      <Scene3D camera={[0, 2.4, 4.6]} height={340}>
+        {/* torus */}
+        <group position={[TX, 0, 0]}>
+          <mesh>
+            <torusGeometry args={[TR, Tr, 36, 72]} />
+            <meshStandardMaterial color="#cfc9e8" transparent opacity={0.55} roughness={0.7} />
+          </mesh>
+        </group>
+        {/* sphere */}
+        <group position={[SX, 0, 0]}>
+          <mesh>
+            <sphereGeometry args={[SR, 40, 40]} />
+            <meshStandardMaterial color="#c9dde8" transparent opacity={0.55} roughness={0.7} />
+          </mesh>
+        </group>
+        <Line points={torusLoop} color="#d9483f" lineWidth={3} />
+        <Line points={sphereLoop} color="#d9483f" lineWidth={3} />
+      </Scene3D>
+      <ControlBar>
+        <LabeledSlider
+          label="slide / shrink"
+          value={t}
+          min={0}
+          max={1}
+          step={0.005}
+          onChange={setT}
+          fmt={v => `${(v * 100).toFixed(0)}%`}
+          color="#d9483f"
+          width={260}
+        />
+      </ControlBar>
     </WidgetShell>
   );
 }
