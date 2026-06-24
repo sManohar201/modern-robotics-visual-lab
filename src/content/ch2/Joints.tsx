@@ -250,7 +250,7 @@ const JOINT_INFO: Record<
     ],
   },
   H: {
-    name: "Helical",
+    name: "Helical / Screw",
     f: 1,
     planarOk: false,
     chips: [

@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Line } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
-import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef } from "../../components/prose";
+import { PageHeader, H2, M, Eq, KeyIdea, BookRef } from "../../components/prose";
 import { WidgetShell, ControlBar, LabeledSlider, Readout } from "../../components/widgets/WidgetShell";
 import { Challenge } from "../../components/widgets/Challenge";
 import { Mat3Display } from "../../components/widgets/MatrixDisplay";
@@ -157,19 +157,18 @@ export default function Representation() {
       </p>
       <p>
         This is why Modern Robotics uses rotation matrices — and later, <M>{"4 \\times 4"}</M>{" "}
-        transformation matrices for full rigid-body poses — rather than Euler angles or quaternions
-        as its primary representation. The extra storage cost (9 numbers instead of 3) buys
-        something real: freedom from singularities everywhere in the space of orientations.
+        transformation matrices for full rigid-body poses — rather than Euler angles as its primary
+        representation. The extra storage cost (9 numbers instead of 3) buys something real:
+        freedom from singularities everywhere in the space of orientations.
       </p>
 
-      <Aside>
-        Unit quaternions are another implicit representation of <M>{"SO(3)"}</M>: four numbers
-        subject to one constraint <M>{"q_0^2 + q_1^2 + q_2^2 + q_3^2 = 1"}</M>, no
-        singularities. They are more compact than rotation matrices and are widely used in
-        computer graphics and spacecraft control. Modern Robotics discusses them in Appendix B.
-        Rotation matrices are preferred in the main text because they compose and transform
-        vectors by ordinary matrix multiplication — algebraically transparent.
-      </Aside>
+      <p>
+        Rotation matrices are not the only globally non-singular choice, though. There is a leaner
+        implicit representation — the <strong>unit quaternion</strong>: just four numbers on a
+        sphere, no singularities, cheaper to store and compose than a matrix, and the only
+        representation that interpolates orientations gracefully. It is important enough, and
+        strange enough, to deserve its own page — the next one.
+      </p>
 
       <p>
         The next chapter opens with rotation matrices precisely because of this discussion. Having

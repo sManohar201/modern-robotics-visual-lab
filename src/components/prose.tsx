@@ -77,3 +77,22 @@ export function BookRef({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+/** Master reference banner for all College Physics & Dynamics pages. */
+export function PhysicsRef() {
+  return (
+    <div className="ui mt-4 px-4 py-3 rounded-lg bg-[#f4f1fb] border border-[#ddd8f5] text-[12.5px] text-[var(--ink-soft)]">
+      <span className="font-semibold text-[var(--accent)]">Master reference</span>
+      {" — "}
+      <a
+        href="https://physics.info/"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-[var(--accent)] underline underline-offset-2 hover:opacity-75"
+      >
+        The Physics Hypertextbook (physics.info)
+      </a>
+      {" — for a deeper treatment of any topic in this chapter, that site is the place to go."}
+    </div>
+  );
+}

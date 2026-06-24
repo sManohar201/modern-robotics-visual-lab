@@ -172,7 +172,8 @@ function LinkagePlayground() {
 
   const setCrank = (v: number) => {
     if (mech === "fourbar") {
-      setSpun(s => Math.min(7, s + Math.abs(wrapAngle(v - lastT1.current))));
+      const delta = Math.abs(wrapAngle(v - lastT1.current));
+      setSpun(s => Math.min(7, s + delta));
     }
     lastT1.current = v;
     setT1(v);

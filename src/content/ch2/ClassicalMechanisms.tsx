@@ -1,11 +1,11 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Line } from "@react-three/drei";
 import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef } from "../../components/prose";
 import { WidgetShell, ControlBar, LabeledSlider, WidgetButton, Readout } from "../../components/widgets/WidgetShell";
 import { Challenge } from "../../components/widgets/Challenge";
 import { Scene3D } from "../../components/three/Scene3D";
-import { GroundPin, Link, GrublerPanel } from "../../components/widgets/linkage";
-import { svgCoords } from "../../lib/svg";
+import { GroundPin, Link, GrublerPanel, nearest } from "../../components/widgets/linkage";
+import { svgCoords, circleIntersect } from "../../lib/svg";
 import { rad, deg, wrapAngle, vadd, mat3Mul, mat3MulVec, type Vec3, type Mat3 } from "../../lib/math/vec";
 import { rotX, rotY, rotZ } from "../../lib/math/so3";
 
@@ -76,10 +76,7 @@ export default function ClassicalMechanisms() {
         five-bar is a common architecture for parallel planar robots, because the two degrees of
         freedom allow the endpoint to move freely in the plane.
       </p>
-      <p className="text-[14px] italic text-[var(--ink-soft)]">
-        (All three of these — four-bar, slider-crank, and five-bar — are live in the linkage
-        playground on the Grübler's Formula page; go drive them if you haven't.)
-      </p>
+      <FiveBarDemo />
       <p>
         The <strong>Stephenson six-bar</strong> and <strong>Watt six-bar</strong> add two more
         links and three more joints, forming two closed loops:
@@ -330,7 +327,10 @@ function ParallelogramDemo() {
   const dragging = useRef(false);
 
   const update = (v: number) => {
-    if (extra) setTravel(t => Math.min(rad(75), t + Math.abs(wrapAngle(v - lastTh.current))));
+    if (extra) {
+      const delta = Math.abs(wrapAngle(v - lastTh.current));
+      setTravel(t => Math.min(rad(75), t + delta));
+    }
     lastTh.current = v;
     setTh(v);
   };
@@ -426,6 +426,135 @@ function ParallelogramDemo() {
 
 function vadd2(a: [number, number], b: [number, number]): [number, number] {
   return [a[0] + b[0], a[1] + b[1]];
+}
+
+/* ================= widget: five-bar slider-crank variant ================= */
+
+const FBW = 760;
+const FBH = 340;
+const FBG1: [number, number] = [200, 282];   // left revolute ground pivot
+const FB_RAIL_Y = 282;                        // slider rail y
+const FB_RAIL_X0 = 310;                       // rail left bound
+const FB_RAIL_X1 = 590;                       // rail right bound — chosen so |E1–S| < 2×FB_DIST always
+const FB_PROX = 90;                           // crank length
+const FB_DIST = 250;                          // coupler lengths — long enough to always intersect
+const FB_SLIDER_INIT = 450;
+const FB_TARGET: [number, number] = [420, 85];
+const FB_TOL = 22;
+
+function FiveBarDemo() {
+  const [t1, setT1] = useState(rad(-105));
+  const [sliderX, setSliderX] = useState(FB_SLIDER_INIT);
+  const [trail, setTrail] = useState<[number, number][]>([]);
+  const prevApex = useRef<[number, number] | null>(null);
+
+  const E1: [number, number] = [FBG1[0] + FB_PROX * Math.cos(t1), FBG1[1] + FB_PROX * Math.sin(t1)];
+  const S: [number, number] = [sliderX, FB_RAIL_Y];
+
+  const sol = nearest(
+    prevApex.current ?? [358, 99],
+    circleIntersect(E1, FB_DIST, S, FB_DIST, 1),
+    circleIntersect(E1, FB_DIST, S, FB_DIST, -1),
+  );
+  if (sol) prevApex.current = sol;
+  const apex: [number, number] = sol ?? prevApex.current ?? [358, 99];
+
+  const apexRef = useRef<[number, number]>(apex);
+  apexRef.current = apex;
+
+  useEffect(() => {
+    setTrail(tr => [...tr.slice(-299), apexRef.current]);
+  }, [t1, sliderX]);
+
+  const met = Math.hypot(apex[0] - FB_TARGET[0], apex[1] - FB_TARGET[1]) < FB_TOL;
+
+  return (
+    <>
+      <WidgetShell
+        title="Five-bar (slider-crank variant) — 1R + 1P inputs, 2 DOF"
+        onReset={() => { setT1(rad(-105)); setSliderX(FB_SLIDER_INIT); setTrail([]); prevApex.current = [358, 99]; }}
+        caption={
+          <>
+            One revolute crank (θ₁) and one prismatic slider (d) drive a free endpoint — the same
+            2 DOF as the two-crank version, but with mixed joint types. The trail shows the
+            reachable workspace; you need both inputs to steer the endpoint anywhere in it.
+          </>
+        }
+      >
+        <svg viewBox={`0 0 ${FBW} ${FBH}`} className="w-full select-none">
+          {/* endpoint trail */}
+          {trail.length > 1 && (
+            <path
+              d={trail.reduce((acc, [x, y], i) => {
+                if (i === 0) return `M${x.toFixed(1)},${y.toFixed(1)}`;
+                const [px, py] = trail[i - 1];
+                return `${acc}${Math.hypot(x - px, y - py) > 30 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+              }, "")}
+              fill="none"
+              stroke="#6741d944"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
+
+          {/* slider rail */}
+          <line x1={FB_RAIL_X0} y1={FB_RAIL_Y - 17} x2={FB_RAIL_X1} y2={FB_RAIL_Y - 17} stroke="#b9b5a8" strokeWidth={2} strokeDasharray="7 5" />
+          <line x1={FB_RAIL_X0} y1={FB_RAIL_Y + 17} x2={FB_RAIL_X1} y2={FB_RAIL_Y + 17} stroke="#b9b5a8" strokeWidth={2} strokeDasharray="7 5" />
+          <text x={FB_RAIL_X1 - 80} y={FB_RAIL_Y - 24} fontSize="11" fill="#8a8a9b" fontFamily="Inter,sans-serif">prismatic (f = 1)</text>
+
+          {/* target zone */}
+          <circle cx={FB_TARGET[0]} cy={FB_TARGET[1]} r={FB_TOL} fill={met ? "#2f9e4422" : "none"} stroke="#caa53d" strokeWidth={1.5} strokeDasharray="5 3" />
+          <circle cx={FB_TARGET[0]} cy={FB_TARGET[1]} r={4} fill="#caa53d" />
+          <text x={FB_TARGET[0] + 14} y={FB_TARGET[1] + 4} fontSize="11" fill="#a08030" fontFamily="Inter,sans-serif">target</text>
+
+          {/* mechanism */}
+          <GroundPin x={FBG1[0]} y={FBG1[1]} />
+          <Link a={FBG1} b={E1} color="#6741d9" w={8} />
+          <Link a={E1} b={apex} color="#9a9a8a" />
+          <Link a={S} b={apex} color="#9a9a8a" />
+
+          {/* slider block */}
+          <rect x={S[0] - 26} y={FB_RAIL_Y - 15} width={52} height={30} rx={6} fill="#c2571c" opacity={0.88} />
+          <circle cx={S[0]} cy={S[1]} r={6} fill="#fff" stroke="#c2571c" strokeWidth={2} />
+
+          {/* joint at crank tip */}
+          <circle cx={E1[0]} cy={E1[1]} r={6} fill="#fff" stroke="#6741d9" strokeWidth={2.5} />
+
+          {/* endpoint dot */}
+          <circle cx={apex[0]} cy={apex[1]} r={9} fill={met ? "#2f9e44" : "#2f9e4488"} />
+          <circle cx={apex[0]} cy={apex[1]} r={5} fill={met ? "#fff" : "#2f9e44"} />
+
+          <GrublerPanel x={FBW - 250} y={14} N={5} J={5} sumF={5} note="4R + 1P joints" />
+        </svg>
+
+        <ControlBar>
+          <LabeledSlider
+            label={<span>θ₁</span>}
+            value={t1}
+            min={rad(-170)} max={rad(-10)} step={0.01}
+            onChange={setT1}
+            fmt={v => `${deg(v).toFixed(0)}°`}
+            color="#6741d9" width={200}
+          />
+          <LabeledSlider
+            label="d"
+            value={sliderX}
+            min={FB_RAIL_X0 + 20} max={FB_RAIL_X1 - 20} step={1}
+            onChange={setSliderX}
+            fmt={v => `${(v - FB_RAIL_X0).toFixed(0)} px`}
+            color="#c2571c" width={200}
+          />
+        </ControlBar>
+      </WidgetShell>
+
+      <Challenge id="ch2-mech-fivebar" met={met}>
+        Steer the green endpoint into the gold circle using both inputs. The crank rotates the
+        left arm; the slider translates the right pivot — two completely different joint types,
+        same DOF count: <M>{"3(5-1-5)+5=2"}</M>.
+      </Challenge>
+    </>
+  );
 }
 
 /* ================= widget: Stewart-Gough platform ================= */

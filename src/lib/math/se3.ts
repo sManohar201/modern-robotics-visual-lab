@@ -113,6 +113,18 @@ export const jacobianSpace = (Slist: Vec6[], thetas: number[]): Vec6[] => {
   return cols;
 };
 
+/** Body Jacobian: column i = Ad_{e^{-[Bn]tn}...e^{-[B_{i+1}]t_{i+1}}} B_i (last column = Bn). */
+export const jacobianBody = (Blist: Vec6[], thetas: number[]): Vec6[] => {
+  const n = Blist.length;
+  const cols: Vec6[] = new Array(n);
+  let T = se3Identity();
+  for (let i = n - 1; i >= 0; i--) {
+    cols[i] = adjointApply(T, Blist[i]);
+    T = se3Mul(T, exp6(Blist[i], -thetas[i]));
+  }
+  return cols;
+};
+
 /** Pitch of a twist: h = w . v / |w|^2 (Infinity convention: pure translation returns Infinity). */
 export const twistPitch = (V: Vec6): number => {
   const w: Vec3 = [V[0], V[1], V[2]];
