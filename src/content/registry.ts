@@ -369,6 +369,76 @@ export const chapters: ChapterDef[] = [
       },
     ],
   },
+  {
+    id: "ch8",
+    number: 8,
+    title: "Dynamics of Open Chains",
+    pages: [
+      {
+        id: "ch8-lagrangian",
+        title: "The Lagrangian Formulation",
+        status: "ready",
+        challenges: ["ch8-lagrange-wire"],
+        component: lazy(() => import("./ch8/Lagrangian")),
+      },
+      {
+        id: "ch8-mass-matrix",
+        title: "The Mass Matrix & Kinetic Energy",
+        status: "ready",
+        challenges: ["ch8-mass-matrix-max"],
+        component: lazy(() => import("./ch8/MassMatrix")),
+      },
+      {
+        id: "ch8-coriolis",
+        title: "Coriolis and Centrifugal Forces",
+        status: "ready",
+        challenges: ["ch8-coriolis-deflect"],
+        component: lazy(() => import("./ch8/Coriolis")),
+      },
+      {
+        id: "ch8-gravity",
+        title: "Potential Energy & Gravity Compensation",
+        status: "ready",
+        challenges: ["ch8-gravity-compensation"],
+        component: lazy(() => import("./ch8/Gravity")),
+      },
+      {
+        id: "ch8-rnea",
+        title: "Recursive Newton-Euler Algorithm (RNEA)",
+        status: "ready",
+        challenges: ["ch8-rnea-torque"],
+        component: lazy(() => import("./ch8/Rnea")),
+      },
+    ],
+  },
+  {
+    id: "ch9",
+    number: 9,
+    title: "Trajectory Generation",
+    pages: [
+      {
+        id: "ch9-point-to-point",
+        title: "Point-to-Point Trajectories",
+        status: "ready",
+        challenges: ["ch9-trajectory-limits"],
+        component: lazy(() => import("./ch9/PointToPoint")),
+      },
+      {
+        id: "ch9-via-points",
+        title: "Polynomial Via Point Trajectories",
+        status: "ready",
+        challenges: ["ch9-via-points-accel"],
+        component: lazy(() => import("./ch9/ViaPoints")),
+      },
+      {
+        id: "ch9-time-optimal",
+        title: "Time-Optimal Time Scaling",
+        status: "ready",
+        challenges: ["ch9-time-optimal-scaling"],
+        component: lazy(() => import("./ch9/TimeOptimal")),
+      },
+    ],
+  },
 ];
 
 export const allPages = chapters.flatMap(c => c.pages);
