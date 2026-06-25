@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef } from "../../components/prose";
-import { WidgetShell, ControlBar, LabeledSlider, WidgetButton, Readout } from "../../components/widgets/WidgetShell";
+import { PageHeader, M, Eq, KeyIdea, BookRef } from "../../components/prose";
+import { WidgetShell, LabeledSlider, WidgetButton, Readout } from "../../components/widgets/WidgetShell";
 import { Challenge } from "../../components/widgets/Challenge";
 import { Scene3D } from "../../components/three/Scene3D";
 import { Line } from "@react-three/drei";
@@ -54,7 +54,7 @@ interface GridNode {
 
 export default function TimeOptimal() {
   const [playing, setPlaying] = useState(false);
-  const [simTime, setSimTime] = useState(0.0);
+  const [, setSimTime] = useState(0.0);
   const [switchS, setSwitchS] = useState(0.50); // initial manual switching point
 
   // Parameters for rendering
@@ -519,8 +519,8 @@ export default function TimeOptimal() {
                 <Readout label="Velocity s_dot" value={`${currentSDot.toFixed(2)} rad/s`} />
                 <Readout
                   label="Trajectory State"
-                  value={!traj.feasible ? "Stalls (Red)" : (isLanded ? "Lands at Rest (Green)" : "Overshoots (Orange)")}
-                  color={!traj.feasible ? "var(--bad)" : (isLanded ? "var(--good)" : "#f59f00")}
+                  value={!traj.feasible ? "Stalls (Red)" : (isCorrect ? "Lands at Rest (Green)" : "Overshoots (Orange)")}
+                  color={!traj.feasible ? "var(--bad)" : (isCorrect ? "var(--good)" : "#f59f00")}
                 />
                 <Readout label="Landing Velocity" value={`${traj.finalSd.toFixed(2)} rad/s`} />
                 <Readout label="Total Duration T" value={traj.feasible ? `${traj.T_total.toFixed(2)} s` : "N/A"} />

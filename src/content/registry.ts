@@ -439,6 +439,104 @@ export const chapters: ChapterDef[] = [
       },
     ],
   },
+  {
+    id: "ch10",
+    number: 10,
+    title: "Motion Planning",
+    pages: [
+      {
+        id: "ch10-grid-search",
+        title: "Grid Search: Dijkstra vs. A*",
+        status: "ready",
+        challenges: ["ch10-grid-heuristic"],
+        component: lazy(() => import("./ch10/GridSearch")),
+      },
+      {
+        id: "ch10-sampling",
+        title: "Sampling-Based Planning: PRM & RRT",
+        status: "ready",
+        challenges: ["ch10-rrt-connect"],
+        component: lazy(() => import("./ch10/SamplingPlanners")),
+      },
+      {
+        id: "ch10-potential-fields",
+        title: "Virtual Potential Fields",
+        status: "ready",
+        challenges: ["ch10-potential-escape"],
+        component: lazy(() => import("./ch10/PotentialFields")),
+      },
+    ],
+  },
+  {
+    id: "ch11",
+    number: 11,
+    title: "Robot Control",
+    pages: [
+      {
+        id: "ch11-pid",
+        title: "Joint-Space PID Control",
+        status: "ready",
+        challenges: ["ch11-pid-overshoot"],
+        component: lazy(() => import("./ch11/PidControl")),
+      },
+      {
+        id: "ch11-computed-torque",
+        title: "Computed Torque Control",
+        status: "ready",
+        challenges: ["ch11-computed-torque"],
+        component: lazy(() => import("./ch11/ComputedTorque")),
+      },
+      {
+        id: "ch11-impedance",
+        title: "Force & Impedance Control",
+        status: "ready",
+        challenges: ["ch11-impedance-soft"],
+        component: lazy(() => import("./ch11/ImpedanceControl")),
+      },
+    ],
+  },
+  {
+    id: "ch12",
+    number: 12,
+    title: "Grasping & Coordinated Manipulation",
+    pages: [
+      {
+        id: "ch12-friction-cones",
+        title: "Contact Friction Cones",
+        status: "ready",
+        challenges: ["ch12-cone-aim", "ch12-cone-friction"],
+        component: lazy(() => import("./ch12/FrictionCones")),
+      },
+      {
+        id: "ch12-form-closure",
+        title: "Force and Form Closure",
+        status: "ready",
+        challenges: ["ch12-grasp-closure"],
+        component: lazy(() => import("./ch12/FormClosure")),
+      },
+    ],
+  },
+  {
+    id: "ch13",
+    number: 13,
+    title: "Wheeled Mobile Robots",
+    pages: [
+      {
+        id: "ch13-nonholonomic",
+        title: "Pfaffian & Nonholonomic Constraints",
+        status: "ready",
+        challenges: ["ch13-parallel-park"],
+        component: lazy(() => import("./ch13/Nonholonomic")),
+      },
+      {
+        id: "ch13-drive-kinematics",
+        title: "Omnidirectional vs. Differential Drive",
+        status: "ready",
+        challenges: ["ch13-omni-tracking"],
+        component: lazy(() => import("./ch13/DriveKinematics")),
+      },
+    ],
+  },
 ];
 
 export const allPages = chapters.flatMap(c => c.pages);
