@@ -59,6 +59,7 @@ export function LabeledSlider({
   fmt,
   width = 160,
   color,
+  disabled = false,
 }: {
   label: ReactNode;
   value: number;
@@ -69,9 +70,10 @@ export function LabeledSlider({
   fmt?: (v: number) => string;
   width?: number;
   color?: string;
+  disabled?: boolean;
 }) {
   return (
-    <label className="flex items-center gap-2.5 text-[13px]">
+    <label className={`flex items-center gap-2.5 text-[13px] ${disabled ? "opacity-40" : ""}`}>
       <span className="font-medium min-w-[20px]" style={color ? { color } : undefined}>
         {label}
       </span>
@@ -83,6 +85,7 @@ export function LabeledSlider({
         max={max}
         step={step}
         value={value}
+        disabled={disabled}
         onChange={e => onChange(parseFloat(e.target.value))}
       />
       <span className="mono text-[12px] text-[var(--ink-soft)] min-w-[52px] text-right">
