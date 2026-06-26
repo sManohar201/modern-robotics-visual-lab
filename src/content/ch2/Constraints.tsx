@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import { Line } from "@react-three/drei";
 import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef } from "../../components/prose";
 import { WidgetShell, ControlBar, LabeledSlider, WidgetButton, Readout } from "../../components/widgets/WidgetShell";
 import { Challenge } from "../../components/widgets/Challenge";
-import { rad, deg, wrapAngle } from "../../lib/math/vec";
+import { Scene3D } from "../../components/three/Scene3D";
+import { rad, deg, wrapAngle, type Vec3 } from "../../lib/math/vec";
 
 export default function Constraints() {
   return (
@@ -33,6 +35,41 @@ export default function Constraints() {
         being traced. Two coordinates, one dof.
       </p>
 
+      <H2>Holonomic constraints in closed chains</H2>
+      <p>
+        In a closed-chain mechanism, the loop closure condition is precisely a holonomic
+        constraint. Take a planar four-bar linkage with link lengths{" "}
+        <M>{"l_1, l_2, l_3, l_4"}</M> and joint angles <M>{"\\theta_1, \\ldots, \\theta_4"}</M>.
+        Tracing around the loop, the sum of all link vectors must return to the starting point:
+      </p>
+      <Eq>
+        {"l_1 \\cos\\theta_1 + l_2 \\cos\\theta_2 + l_3 \\cos\\theta_3 - l_4 = 0"}
+      </Eq>
+      <Eq>
+        {"l_1 \\sin\\theta_1 + l_2 \\sin\\theta_2 + l_3 \\sin\\theta_3 = 0"}
+      </Eq>
+      <p>
+        These are two scalar equations in four joint angles — two holonomic constraints of the
+        form <M>{"g(\\theta) = 0"}</M>. They reduce the four-angle system from 4 DOF to 2 DOF
+        immediately. In practice the ground link fixes <M>{"\\theta_4"}</M>, reducing to 1 input.
+        Every closed chain is described this way: the mechanism's configuration space is the
+        manifold cut out by the loop closure equations inside the unconstrained joint space.
+      </p>
+      <p>
+        Differentiating <M>{"g(\\theta) = 0"}</M> with respect to time gives the corresponding
+        velocity constraint:
+      </p>
+      <Eq>{"\\frac{\\partial g}{\\partial \\theta}\\,\\dot{\\theta} = 0 \\qquad \\Longrightarrow \\qquad A(\\theta)\\,\\dot{\\theta} = 0"}</Eq>
+      <p>
+        where <M>{"A(\\theta) = \\partial g / \\partial \\theta"}</M> is the{" "}
+        <strong>constraint Jacobian</strong>. This linear constraint on velocity{" "}
+        <M>{"\\dot{\\theta}"}</M> is called a <strong>Pfaffian constraint</strong>. It is always
+        linear in velocity — even when <M>{"g(\\theta)"}</M> is nonlinear in configuration —
+        because differentiation with respect to time is a linear operation. For holonomic
+        constraints, the Pfaffian form is always derivable from a configuration constraint. The
+        crucial question is whether the reverse is true.
+      </p>
+
       <H2>The car is different</H2>
       <p>
         A car on a parking lot has configuration <M>{"q = (x, y, \\theta)"}</M> — position plus
@@ -59,10 +96,65 @@ export default function Constraints() {
         only a 2-D slice of the 3-D velocity space (drive + steer) is available.
       </p>
 
+      <H2>The rolling coin: a complete nonholonomic example</H2>
+      <p>
+        The rolling coin is the cleanest worked example of a nonholonomic system, and it is worth
+        treating fully. A thin coin rolls without slipping on a flat table. Its configuration
+        requires four numbers:
+      </p>
+      <Eq>{"q = (x,\\, y,\\, \\phi,\\, \\theta)"}</Eq>
+      <p>
+        where <M>{"(x, y)"}</M> is the contact point's position on the table,{" "}
+        <M>{"\\phi"}</M> is the heading angle (which direction the coin faces), and{" "}
+        <M>{"\\theta"}</M> is the coin's spin angle (how much it has rolled). The C-space is
+        four-dimensional: <M>{"\\mathbb{R}^2 \\times T^2"}</M>.
+      </p>
+      <p>
+        Rolling without slipping means the contact point's velocity is exactly that produced by
+        rolling. If the coin has radius <M>{"r"}</M>, this gives two scalar constraints on the
+        velocities:
+      </p>
+      <Eq>{"\\dot{x} = r\\,\\dot{\\theta}\\cos\\phi"}</Eq>
+      <Eq>{"\\dot{y} = r\\,\\dot{\\theta}\\sin\\phi"}</Eq>
+      <p>
+        In Pfaffian form <M>{"A(q)\\dot{q} = 0"}</M> with{" "}
+        <M>{"\\dot{q} = (\\dot{x},\\,\\dot{y},\\,\\dot{\\phi},\\,\\dot{\\theta})^\\top"}</M>:
+      </p>
+      <Eq>
+        {"\\begin{bmatrix} 1 & 0 & 0 & -r\\cos\\phi \\\\ 0 & 1 & 0 & -r\\sin\\phi \\end{bmatrix} \\begin{pmatrix} \\dot{x} \\\\ \\dot{y} \\\\ \\dot{\\phi} \\\\ \\dot{\\theta} \\end{pmatrix} = \\begin{pmatrix} 0 \\\\ 0 \\end{pmatrix}"}
+      </Eq>
+      <p>
+        Two constraints on four velocity components leave two free velocity directions at each
+        configuration: the coin can change its heading <M>{"\\dot{\\phi}"}</M> (steer) and its
+        spin rate <M>{"\\dot{\\theta}"}</M> (roll). The contact velocity{" "}
+        <M>{"(\\dot{x}, \\dot{y})"}</M> is then determined. So the coin has 2-dimensional
+        instantaneous velocity freedom at every configuration, even though its C-space is
+        4-dimensional.
+      </p>
+      <p>
+        Are these constraints holonomic? Testing whether the matrix <M>{"A(q)"}</M> is the
+        Jacobian of some function <M>{"g(q)"}</M> — the integrability condition — shows that it
+        is not. There is no function <M>{"g(x, y, \\phi, \\theta)"}</M> whose zero set is the
+        reachable configurations. The constraints are <strong>nonholonomic</strong>.
+      </p>
+      <p>
+        The consequence is the same paradox as the car: the coin can reach every point in its
+        4-dimensional C-space. From any starting position, heading, and spin, it can arrive at any
+        other position, heading, and spin — it just cannot do it directly. A coin that needs to
+        end up one meter to the left can be steered through a sequence of forward arcs: one arc to
+        the left, counter-steer, arc back. The net result is lateral displacement achieved entirely
+        through forward rolling and steering, with the no-slip constraint respected at every
+        instant. Roll it yourself:
+      </p>
+
+      <RollingCoin />
+
       <KeyIdea>
-        Holonomic constraints shrink <em>where you can be</em> (C-space loses dimensions).
-        Nonholonomic constraints shrink <em>how you can move</em> (velocity space loses
-        dimensions) — yet every configuration remains reachable, just by longer, curvier routes.
+        Holonomic constraints shrink <em>where you can be</em>: C-space loses dimensions.
+        Nonholonomic constraints shrink <em>how you can move</em> at each instant — the velocity
+        space is restricted — yet every configuration remains reachable through longer, curvier
+        routes. For the rolling coin: 4-dimensional C-space, 2-dimensional instantaneous velocity
+        space, every configuration reachable.
       </KeyIdea>
 
       <Aside>
@@ -73,7 +165,7 @@ export default function Constraints() {
         generated systematically (they are <em>Lie brackets</em> of the controls).
       </Aside>
 
-      <BookRef>Modern Robotics §2.4 — Configuration and Velocity Constraints.</BookRef>
+      <BookRef>Modern Robotics §2.4 — Configuration and Velocity Constraints; §2.5 — Task Space and Workspace.</BookRef>
     </div>
   );
 }
@@ -316,6 +408,199 @@ function ParkingLot() {
         Parallel-park into the dashed slot (within tolerance, heading within 10°). You'll need the
         classic wiggle: reverse while steering, counter-steer, pull forward. Every move respects
         the no-sideways rule, yet the net effect is exactly a sideways displacement.
+      </Challenge>
+    </>
+  );
+}
+
+/* ================= widget: rolling coin ================= */
+
+const CR = 0.32; // coin radius
+const CPLANE = -0.7; // table height (math z)
+const CSTART = { x: -0.5, y: -0.4, phi: 0, th: 0 };
+const CLIM = 1.7; // table half-extent
+
+function RollingCoin() {
+  const [pose, setPose] = useState(CSTART);
+  const [trail, setTrail] = useState<[number, number][]>([]);
+  const roll = useRef(0); // -1, 0, 1
+  const steer = useRef(0); // -1, 0, 1
+  const poseRef = useRef(CSTART);
+
+  // simulation loop: integrate the Pfaffian-feasible velocities only
+  useEffect(() => {
+    let raf = 0;
+    let last = performance.now();
+    let acc = 0;
+    const step = (now: number) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      if (roll.current !== 0 || steer.current !== 0) {
+        const p = poseRef.current;
+        const dth = roll.current * 4.2 * dt; // spin rate
+        const nphi = wrapAngle(p.phi + steer.current * 2.0 * dt);
+        const nx = Math.min(CLIM, Math.max(-CLIM, p.x + CR * dth * Math.cos(nphi)));
+        const ny = Math.min(CLIM, Math.max(-CLIM, p.y + CR * dth * Math.sin(nphi)));
+        const np = { x: nx, y: ny, phi: nphi, th: p.th + dth };
+        poseRef.current = np;
+        setPose(np);
+        acc += Math.abs(CR * dth) + Math.abs(steer.current * 2.0 * dt) * 0.02;
+        if (acc > 0.045) {
+          acc = 0;
+          setTrail(t => (t.length > 500 ? [...t.slice(-500), [np.x, np.y]] : [...t, [np.x, np.y]]));
+        }
+      }
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // keyboard: W/S roll, A/D steer (arrows belong to the parking widget above)
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      if (k === "w") roll.current = 1;
+      if (k === "s") roll.current = -1;
+      if (k === "a") steer.current = 1;
+      if (k === "d") steer.current = -1;
+    };
+    const up = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      if (k === "w" || k === "s") roll.current = 0;
+      if (k === "a" || k === "d") steer.current = 0;
+    };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+    };
+  }, []);
+
+  const reset = () => {
+    poseRef.current = CSTART;
+    setPose(CSTART);
+    setTrail([]);
+  };
+
+  const parked =
+    Math.abs(pose.x - CSTART.x) < 0.13 &&
+    Math.abs(pose.y - CSTART.y) < 0.13 &&
+    Math.abs(deg(wrapAngle(pose.phi - Math.PI))) < 15;
+
+  const trail3d: Vec3[] = trail.map(p => [p[0], p[1], CPLANE + 0.005]);
+  const headingTick: Vec3[] = [
+    [pose.x, pose.y, CPLANE + 0.01],
+    [pose.x + 0.45 * Math.cos(pose.phi), pose.y + 0.45 * Math.sin(pose.phi), CPLANE + 0.01],
+  ];
+  const startRing: Vec3[] = [];
+  for (let i = 0; i <= 48; i++) {
+    const a = (i / 48) * 2 * Math.PI;
+    startRing.push([CSTART.x + 0.15 * Math.cos(a), CSTART.y + 0.15 * Math.sin(a), CPLANE + 0.008]);
+  }
+  const goalTick: Vec3[] = [
+    [CSTART.x, CSTART.y, CPLANE + 0.008],
+    [CSTART.x - 0.3, CSTART.y, CPLANE + 0.008], // reversed heading: -x
+  ];
+
+  return (
+    <>
+      <WidgetShell
+        title="The rolling coin — 2 controls exploring a 4-D C-space"
+        onReset={reset}
+        caption={
+          <>
+            Hold the buttons, or use <span className="mono">W/S</span> to roll and{" "}
+            <span className="mono">A/D</span> to steer. The contact point can never slide sideways
+            — every velocity obeys both Pfaffian constraints — yet position, heading{" "}
+            <em>and</em> spin are all yours to choose. Drag the view to orbit.
+          </>
+        }
+      >
+        <Scene3D camera={[2.6, 2.3, 3.0]} height={400}>
+          {/* table */}
+          <mesh position={[0, 0, CPLANE - 0.01]}>
+            <planeGeometry args={[2 * CLIM + 0.6, 2 * CLIM + 0.6]} />
+            <meshStandardMaterial color="#eae6da" />
+          </mesh>
+
+          {/* start / goal marker (gold): return here, heading reversed */}
+          <Line points={startRing} color="#caa53d" lineWidth={2.5} />
+          <Line points={goalTick} color="#caa53d" lineWidth={3} />
+
+          {/* trail of the contact point */}
+          {trail3d.length > 1 && <Line points={trail3d} color="#6741d9" lineWidth={2} transparent opacity={0.6} />}
+
+          {/* heading arrow on the table */}
+          <Line points={headingTick} color="#6741d9" lineWidth={2.5} />
+
+          {/* the coin: heading group, then spin about the rolling axis (local y) */}
+          <group position={[pose.x, pose.y, CPLANE + CR]} rotation={[0, 0, pose.phi]}>
+            <group rotation={[0, pose.th, 0]}>
+              <mesh>
+                <cylinderGeometry args={[CR, CR, 0.045, 48]} />
+                <meshStandardMaterial color="#c2571c" metalness={0.35} roughness={0.4} />
+              </mesh>
+              {/* spin marker: a radius line + rim dot, so θ is visible */}
+              <Line points={[[0, 0.026, 0], [CR * 0.92, 0.026, 0]]} color="#fbf7e8" lineWidth={2.5} />
+              <mesh position={[CR * 0.82, 0.03, 0]}>
+                <sphereGeometry args={[0.035, 12, 12]} />
+                <meshStandardMaterial color="#d9483f" />
+              </mesh>
+            </group>
+          </group>
+        </Scene3D>
+
+        <ControlBar>
+          <WidgetButton onClick={() => {}}>
+            <span
+              onPointerDown={() => (roll.current = 1)}
+              onPointerUp={() => (roll.current = 0)}
+              onPointerLeave={() => (roll.current = 0)}
+            >
+              roll ▲ (hold)
+            </span>
+          </WidgetButton>
+          <WidgetButton onClick={() => {}}>
+            <span
+              onPointerDown={() => (roll.current = -1)}
+              onPointerUp={() => (roll.current = 0)}
+              onPointerLeave={() => (roll.current = 0)}
+            >
+              roll ▼ (hold)
+            </span>
+          </WidgetButton>
+          <WidgetButton onClick={() => {}}>
+            <span
+              onPointerDown={() => (steer.current = 1)}
+              onPointerUp={() => (steer.current = 0)}
+              onPointerLeave={() => (steer.current = 0)}
+            >
+              ↺ steer
+            </span>
+          </WidgetButton>
+          <WidgetButton onClick={() => {}}>
+            <span
+              onPointerDown={() => (steer.current = -1)}
+              onPointerUp={() => (steer.current = 0)}
+              onPointerLeave={() => (steer.current = 0)}
+            >
+              steer ↻
+            </span>
+          </WidgetButton>
+          <Readout
+            label="(x, y, φ, θ)"
+            value={`(${pose.x.toFixed(2)}, ${pose.y.toFixed(2)}, ${deg(pose.phi).toFixed(0)}°, ${deg(pose.th).toFixed(0)}°)`}
+          />
+        </ControlBar>
+      </WidgetShell>
+
+      <Challenge id="ch2-coin-park" met={parked}>
+        Take the coin for a loop, then bring its contact point back inside the gold ring —{" "}
+        <strong>facing the opposite way</strong> (heading within 15° of 180°). You will have changed{" "}
+        <M>{"\\phi"}</M> by π and returned <M>{"(x, y)"}</M> to the start using only the two
+        velocity directions the constraints allow: full reachability, zero constraint violations.
       </Challenge>
     </>
   );

@@ -3,7 +3,7 @@ import { CheckCircle2, Circle, ChevronRight, ChevronLeft } from "lucide-react";
 import { chapters, allPages, findPage, type PageDef } from "./content/registry";
 import { useProgress } from "./store/progress";
 
-const DEFAULT_PAGE = "ch2-config-dof";
+const DEFAULT_PAGE = "phys1-foundations";
 
 function usePageId(): [string, (id: string) => void] {
   const [id, setId] = useState(() => window.location.hash.replace(/^#\/?/, "") || DEFAULT_PAGE);
@@ -24,7 +24,7 @@ export default function App() {
   const { chapter, page } = found;
 
   useEffect(() => {
-    document.title = `${page.title} — MR Visual Lab`;
+    document.title = `${page.title} — Visual Learning Lab`;
     document.querySelector("main")?.scrollTo(0, 0);
   }, [page]);
 
@@ -81,8 +81,8 @@ function Sidebar({ activeId, onNav }: { activeId: string; onNav: (id: string) =>
         <div className="text-[10px] font-bold tracking-[0.22em] uppercase text-[var(--accent)] mb-1">
           Explorable
         </div>
-        <div className="text-[17px] font-bold leading-tight text-[var(--ink)]">Modern Robotics</div>
-        <div className="text-[11.5px] text-[var(--ink-faint)] mt-0.5">Lynch &amp; Park · visual lab</div>
+        <div className="text-[17px] font-bold leading-tight text-[var(--ink)]">Visual Learning Lab</div>
+        <div className="text-[11.5px] text-[var(--ink-faint)] mt-0.5">physics · dynamics · robotics</div>
       </div>
 
       {chapters.map(ch => (

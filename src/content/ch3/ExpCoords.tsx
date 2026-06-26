@@ -37,24 +37,41 @@ export default function ExpCoords() {
 
       <AxisAngleWidget />
 
+      <H2>The skew-symmetric matrix <M>{"[\\hat\\omega]"}</M></H2>
+      <p>
+        The angular velocity page introduced the skew-symmetric bracket{" "}
+        <M>{"[\\omega]"}</M> as a matrix that implements the cross product:{" "}
+        <M>{"[\\omega]\\,p = \\omega \\times p"}</M>. Here we need the same object for a unit
+        axis <M>{"\\hat\\omega"}</M>:
+      </p>
+      <Eq>{"[\\hat\\omega] = \\begin{bmatrix} 0 & -\\hat\\omega_3 & \\hat\\omega_2 \\\\ \\hat\\omega_3 & 0 & -\\hat\\omega_1 \\\\ -\\hat\\omega_2 & \\hat\\omega_1 & 0 \\end{bmatrix} \\in \\mathfrak{so}(3), \\qquad [\\hat\\omega]\\,p = \\hat\\omega \\times p."}</Eq>
+      <p>
+        Two power identities for unit-axis skew matrices that appear in the derivation below:
+      </p>
+      <Eq>{"[\\hat\\omega]^2 = \\hat\\omega\\hat\\omega^\\mathsf{T} - I, \\qquad [\\hat\\omega]^3 = -[\\hat\\omega]."}</Eq>
+      <p>
+        The second identity — <M>{"[\\hat\\omega]^3 = -[\\hat\\omega]"}</M> — means higher odd
+        powers cycle back: <M>{"[\\hat\\omega]^5 = -[\\hat\\omega]"}</M>,{" "}
+        <M>{"[\\hat\\omega]^7 = -[\\hat\\omega]"}</M>, and so on. Higher even powers cycle
+        through <M>{"[\\hat\\omega]^2"}</M>. This periodicity is what collapses the infinite
+        matrix exponential series into a finite, closed-form expression.
+      </p>
+
       <H2>Why "exponential"?</H2>
       <p>
-        Spin the body about <M>{"\\hat\\omega"}</M> at unit speed. A point at <M>{"p(t)"}</M>{" "}
-        moves with velocity <M>{"\\dot p = \\hat\\omega \\times p"}</M>. Cross products are linear
-        maps, so define the <strong>skew-symmetric matrix</strong>
+        Spin the body about <M>{"\\hat\\omega"}</M> at unit angular speed. A point{" "}
+        <M>{"p(t)"}</M> fixed to the body moves with velocity
       </p>
-      <Eq>{"[\\hat\\omega] = \\begin{bmatrix} 0 & -\\hat\\omega_3 & \\hat\\omega_2 \\\\ \\hat\\omega_3 & 0 & -\\hat\\omega_1 \\\\ -\\hat\\omega_2 & \\hat\\omega_1 & 0 \\end{bmatrix}, \\qquad [\\hat\\omega]\\,p = \\hat\\omega \\times p,"}</Eq>
+      <Eq>{"\\dot{p} = \\hat\\omega \\times p = [\\hat\\omega]\\,p."}</Eq>
       <p>
-        and the motion becomes the linear ODE <M>{"\\dot p = [\\hat\\omega]\\, p"}</M> — the
-        matrix cousin of <M>{"\\dot x = ax"}</M>, whose solution is an exponential. After time{" "}
-        <M>{"\\theta"}</M>:
+        This is a linear ODE — the matrix cousin of <M>{"\\dot{x} = ax"}</M>, whose solution is
+        the scalar exponential <M>{"x(t) = e^{at}x(0)"}</M>. The solution here is the matrix
+        exponential: after angle <M>{"\\theta"}</M> (time, at unit speed),
       </p>
-      <Eq>{"p(\\theta) = e^{[\\hat\\omega]\\theta} p(0), \\qquad R = e^{[\\hat\\omega]\\theta}."}</Eq>
+      <Eq>{"p(\\theta) = e^{[\\hat\\omega]\\theta}\\, p(0), \\qquad R = e^{[\\hat\\omega]\\theta}."}</Eq>
       <p>
-        The series <M>{"e^{[\\hat\\omega]\\theta} = I + [\\hat\\omega]\\theta + \\tfrac{1}{2!}[\\hat\\omega]^2\\theta^2 + \\cdots"}</M>{" "}
-        collapses, because powers of <M>{"[\\hat\\omega]"}</M> repeat with period two
-        (<M>{"[\\hat\\omega]^3 = -[\\hat\\omega]"}</M>), into the closed form you were just
-        driving:
+        The infinite series <M>{"e^{[\\hat\\omega]\\theta} = I + [\\hat\\omega]\\theta + \\tfrac{1}{2!}[\\hat\\omega]^2\\theta^2 + \\cdots"}</M>{" "}
+        collapses using the power identities above. Collecting odd and even powers:
       </p>
       <Eq>{"\\boxed{\\,R = e^{[\\hat\\omega]\\theta} = I + \\sin\\theta\\,[\\hat\\omega] + (1 - \\cos\\theta)\\,[\\hat\\omega]^2\\,}"}</Eq>
       <p>
@@ -65,15 +82,36 @@ export default function ExpCoords() {
         around the circle. That circle is exactly the trace your widget drew.
       </p>
 
-      <H2>Coming back: the logarithm</H2>
+      <H2>Coming back: the matrix logarithm</H2>
       <p>
-        The inverse map — recovering <M>{"(\\hat\\omega, \\theta)"}</M> from a matrix — is the{" "}
-        <strong>matrix logarithm</strong>. From Rodrigues' formula,{" "}
-        <M>{"\\operatorname{tr} R = 1 + 2\\cos\\theta"}</M> gives the angle, and the skew part{" "}
-        <M>{"(R - R^\\mathsf{T})/2 = \\sin\\theta\\, [\\hat\\omega]"}</M> gives the axis. You used
-        the log without knowing it: the "distance to target" readout above is{" "}
-        <M>{"\\theta"}</M> of <M>{"\\log(R^\\mathsf{T} R_{\\mathrm{goal}})"}</M> — the angle of
-        the single rotation still separating you from the goal.
+        The inverse problem: given a rotation matrix <M>{"R"}</M>, recover the axis{" "}
+        <M>{"\\hat\\omega"}</M> and angle <M>{"\\theta"}</M>. This is the{" "}
+        <strong>matrix logarithm</strong>, written <M>{"\\log(R)"}</M>.
+      </p>
+      <p>
+        From Rodrigues' formula, taking the trace of both sides:
+      </p>
+      <Eq>{"\\operatorname{tr}\\,R = \\operatorname{tr}\\,(I + \\sin\\theta\\,[\\hat\\omega] + (1-\\cos\\theta)[\\hat\\omega]^2) = 3 - 2(1-\\cos\\theta) = 1 + 2\\cos\\theta."}</Eq>
+      <p>
+        (Using <M>{"\\operatorname{tr}\\,[\\hat\\omega] = 0"}</M> and{" "}
+        <M>{"\\operatorname{tr}\\,[\\hat\\omega]^2 = -2"}</M>.) Solving for <M>{"\\theta"}</M>:
+      </p>
+      <Eq>{"\\theta = \\cos^{-1}\\!\\left(\\frac{\\operatorname{tr}\\,R - 1}{2}\\right)."}</Eq>
+      <p>
+        For the axis, take the skew-symmetric part of <M>{"R"}</M>. From Rodrigues,{" "}
+        <M>{"R - R^\\mathsf{T} = 2\\sin\\theta\\,[\\hat\\omega]"}</M>, so:
+      </p>
+      <Eq>{"[\\hat\\omega] = \\frac{R - R^\\mathsf{T}}{2\\sin\\theta}."}</Eq>
+      <p>
+        Edge cases: at <M>{"\\theta = 0"}</M>, <M>{"R = I"}</M> and any axis works — the
+        logarithm returns zero. At <M>{"\\theta = \\pi"}</M>,{" "}
+        <M>{"\\sin\\theta = 0"}</M> and the above formula is undefined; a separate branch reads
+        the axis from the symmetric part of <M>{"R + I"}</M> instead.
+      </p>
+      <p>
+        You used the log without knowing it: the "distance to goal" readout in the widget above
+        is <M>{"\\theta = \\|\\log(R^\\mathsf{T} R_{\\mathrm{goal}})\\|"}</M> — the angle of the
+        single rotation still separating the current pose from the target.
       </p>
       <Aside>
         Exponential coordinates live in a solid ball of radius <M>{"\\pi"}</M> in{" "}

@@ -1,0 +1,393 @@
+import { useState, useRef, useEffect } from "react";
+import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef, PhysicsRef } from "../../components/prose";
+import { Challenge } from "../../components/widgets/Challenge";
+import { ControlBar, LabeledSlider, Readout, WidgetShell, WidgetButton } from "../../components/widgets/WidgetShell";
+import { rad, deg } from "../../lib/math/vec";
+
+const W = 760;
+const H = 360;
+const RED = "#d9483f";
+const GREEN = "#2f9e44";
+const BLUE = "#3b6fd4";
+const PURPLE = "#6741d9";
+const ORANGE = "#c2571c";
+const GOLD = "#caa53d";
+
+// ------------------------------------------------------------------
+// Torque and lever arm
+// ------------------------------------------------------------------
+function TorqueLeverArm() {
+  const [pivotFrac, setPivotFrac] = useState(0.5);
+  const [force, setForce] = useState(20);
+  const [angle, setAngle] = useState(90);
+
+  const barX0 = 100;
+  const barX1 = 660;
+  const barY = H / 2;
+  const barL = barX1 - barX0;
+  const pivotX = barX0 + pivotFrac * barL;
+  const forceApplyX = barX1; // force applied at right end
+
+  const d = forceApplyX - pivotX; // lever arm (distance pivot to force)
+  const th = rad(angle);
+  const torque = force * d * Math.sin(th) / 100; // scale for display
+
+  const fvx = Math.cos(rad(angle - 90)) * force * 1.8;
+  const fvy = -Math.sin(rad(angle - 90)) * force * 1.8;
+
+  const torqueMet = Math.abs(torque - 2) < 0.15;
+
+  return (
+    <>
+      <WidgetShell
+        title="Torque and lever arm"
+        onReset={() => { setPivotFrac(0.5); setForce(20); setAngle(90); }}
+        caption="τ = r × F = F·d·sin θ  where d is the distance from pivot to the line of force action."
+      >
+        <svg viewBox={`0 0 ${W} ${H}`} className="block w-full rounded-lg bg-[#fbfaf7]">
+          {/* bar */}
+          <rect x={barX0} y={barY - 10} width={barL} height={20} rx={5}
+            fill="#d6d2c4" stroke="#8a8a9b" strokeWidth={2} />
+
+          {/* pivot triangle */}
+          <polygon points={`${pivotX},${barY + 10} ${pivotX - 18},${barY + 36} ${pivotX + 18},${barY + 36}`}
+            fill="#50525e" />
+          <line x1={pivotX - 24} y1={barY + 37} x2={pivotX + 24} y2={barY + 37} stroke="#50525e" strokeWidth={2} />
+
+          {/* lever arm arrow (pivot to force application) */}
+          <line x1={pivotX} y1={barY - 28} x2={forceApplyX} y2={barY - 28}
+            stroke={BLUE} strokeWidth={2} strokeDasharray="6 4" />
+          <text x={(pivotX + forceApplyX) / 2} y={barY - 34} textAnchor="middle"
+            fontFamily="Inter, sans-serif" fontSize="12" fill={BLUE}>
+            d = {(d / 100).toFixed(2)} m
+          </text>
+
+          {/* force arrow */}
+          <defs>
+            <marker id="torq-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill={RED} />
+            </marker>
+          </defs>
+          <line x1={forceApplyX} y1={barY}
+            x2={forceApplyX + fvx} y2={barY + fvy}
+            stroke={RED} strokeWidth={4.5} markerEnd="url(#torq-arrow)" />
+          <text x={forceApplyX + fvx + (fvx > 0 ? 8 : -8)} y={barY + fvy - 6}
+            textAnchor={fvx > 0 ? "start" : "end"}
+            fontFamily="Inter, sans-serif" fontSize="13" fontWeight="600" fill={RED}>
+            F={force} N
+          </text>
+
+          {/* perpendicular component line */}
+          <line x1={forceApplyX} y1={barY} x2={forceApplyX} y2={barY + fvy}
+            stroke={PURPLE} strokeWidth={2} strokeDasharray="5 4" opacity={0.7} />
+
+          {/* torque readout */}
+          <rect x={16} y={16} width={220} height={58} rx={8} fill="#f4f1fb" stroke="#c4b8ef" />
+          <text x={26} y={38} fontFamily="Inter, sans-serif" fontSize="13" fill="#4b4b5e">
+            τ = F·d·sin θ
+          </text>
+          <text x={26} y={60} fontFamily="Inter, sans-serif" fontSize="15" fontWeight="700" fill={PURPLE}>
+            τ = {torque.toFixed(3)} N·m
+          </text>
+
+          {/* torque arc indicator */}
+          {torque > 0.01 && (
+            <path d={`M ${pivotX + 30},${barY} A 30,30 0 0 0 ${pivotX + 30 * Math.cos(Math.PI / 2)},${barY - 30 * Math.sin(Math.PI / 2)}`}
+              fill="none" stroke={PURPLE} strokeWidth={3} strokeDasharray="5 3" />
+          )}
+        </svg>
+        <ControlBar>
+          <LabeledSlider label="pivot position" value={pivotFrac} min={0.05} max={0.95} step={0.01}
+            onChange={setPivotFrac} fmt={v => `${(v * 100).toFixed(0)}%`} />
+          <LabeledSlider label="force F" value={force} min={1} max={50} step={0.5} onChange={setForce}
+            fmt={v => `${v.toFixed(1)} N`} color={RED} />
+          <LabeledSlider label="angle θ" value={angle} min={10} max={170} step={1} onChange={setAngle}
+            fmt={v => `${v.toFixed(0)}°`} color={BLUE} />
+          <Readout label="d" value={`${(d / 100).toFixed(2)} m`} color={BLUE} />
+          <Readout label="τ" value={`${torque.toFixed(3)} N·m`} color={PURPLE} />
+        </ControlBar>
+      </WidgetShell>
+      <Challenge id="phys5-torque-2nm" met={torqueMet}>
+        Achieve exactly <M>{"2 \\pm 0.15 \\text{ N·m}"}</M> of torque. Try different combinations of force,
+        lever-arm length, and angle. A perpendicular force (90°) gives maximum torque for a given distance.
+      </Challenge>
+    </>
+  );
+}
+
+// ------------------------------------------------------------------
+// Moment of inertia comparison
+// ------------------------------------------------------------------
+function MomentOfInertia() {
+  const [mass, setMass] = useState(2);
+  const [radius, setRadius] = useState(1);
+
+  const shapes = [
+    { label: "Ring / Hoop", formula: "I = mR²", I: mass * radius * radius, color: RED, desc: "All mass at rim" },
+    { label: "Solid Disk", formula: "I = ½mR²", I: 0.5 * mass * radius * radius, color: GREEN, desc: "Uniform disk" },
+    { label: "Solid Sphere", formula: "I = ⅖mR²", I: 0.4 * mass * radius * radius, color: BLUE, desc: "Uniform sphere" },
+    { label: "Point mass (axis)", formula: "I = mR²", I: mass * radius * radius, color: ORANGE, desc: "If all at edge" },
+  ];
+  const maxI = shapes[0].I;
+
+  const diskWin = 0.5 * mass * radius * radius < mass * radius * radius;
+
+  return (
+    <>
+      <WidgetShell
+        title="Moment of inertia — shape comparison"
+        onReset={() => { setMass(2); setRadius(1); }}
+        caption="Same mass and radius — the shape distribution changes how hard it is to start spinning."
+      >
+        <svg viewBox={`0 0 ${W} ${H}`} className="block w-full rounded-lg bg-[#fbfaf7]">
+          {shapes.map((sh, i) => {
+            const bx = 80 + i * 168;
+            const by = H - 70;
+            const barH = maxI > 0 ? (sh.I / (maxI * 1.1)) * 210 : 0;
+            const r = 28;
+            return (
+              <g key={sh.label}>
+                {/* bar */}
+                <rect x={bx} y={by - barH} width={100} height={barH} rx={4}
+                  fill={sh.color} opacity={0.25} stroke={sh.color} strokeWidth={1.5} />
+                {/* I value */}
+                <text x={bx + 50} y={by - barH - 8} textAnchor="middle"
+                  fontFamily="Inter, sans-serif" fontSize="13" fontWeight="700" fill={sh.color}>
+                  {sh.I.toFixed(3)}
+                </text>
+                <text x={bx + 50} y={by - barH - 22} textAnchor="middle"
+                  fontFamily="Inter, sans-serif" fontSize="10" fill={sh.color}>
+                  kg·m²
+                </text>
+                {/* shape illustration */}
+                {i === 0 && <circle cx={bx + 50} cy={100} r={r} fill="none" stroke={sh.color} strokeWidth={6} />}
+                {i === 1 && <circle cx={bx + 50} cy={100} r={r} fill={sh.color} opacity={0.3} stroke={sh.color} strokeWidth={2.5} />}
+                {i === 2 && <circle cx={bx + 50} cy={100} r={r} fill={sh.color} opacity={0.5} stroke={sh.color} strokeWidth={2} />}
+                {i === 3 && (
+                  <>
+                    <line x1={bx + 50} y1={100} x2={bx + 50 + r} y2={100} stroke={sh.color} strokeWidth={2} strokeDasharray="4 3" />
+                    <circle cx={bx + 50 + r} cy={100} r={7} fill={sh.color} />
+                  </>
+                )}
+                {/* label */}
+                <text x={bx + 50} y={by + 16} textAnchor="middle"
+                  fontFamily="Inter, sans-serif" fontSize="11" fontWeight="700" fill={sh.color}>
+                  {sh.label}
+                </text>
+                <text x={bx + 50} y={by + 30} textAnchor="middle"
+                  fontFamily="Inter, sans-serif" fontSize="10.5" fill="#8a8a9b">
+                  {sh.formula}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+        <ControlBar>
+          <LabeledSlider label="mass m" value={mass} min={0.1} max={10} step={0.1} onChange={setMass}
+            fmt={v => `${v.toFixed(1)} kg`} />
+          <LabeledSlider label="radius R" value={radius} min={0.1} max={2} step={0.05} onChange={setRadius}
+            fmt={v => `${v.toFixed(2)} m`} />
+          <Readout label="I_ring" value={`${(mass * radius * radius).toFixed(3)} kg·m²`} color={RED} />
+          <Readout label="I_disk" value={`${(0.5 * mass * radius * radius).toFixed(3)} kg·m²`} color={GREEN} />
+          <Readout label="I_sphere" value={`${(0.4 * mass * radius * radius).toFixed(3)} kg·m²`} color={BLUE} />
+        </ControlBar>
+      </WidgetShell>
+    </>
+  );
+}
+
+// ------------------------------------------------------------------
+// Rolling race
+// ------------------------------------------------------------------
+function RollingRace() {
+  const [angle, setAngle] = useState(20);
+  const [running, setRunning] = useState(false);
+  const [positions, setPositions] = useState([0, 0, 0]);
+  const rafRef = useRef<number>(0);
+  const stateRef = useRef({ positions: [0, 0, 0], t: 0 });
+  const DIST = 420;
+
+  // Objects: [hoop, disk, sphere], inertia factors β so I = β·m·R²
+  const betas = [1, 0.5, 0.4];
+  const colors = [RED, GREEN, BLUE];
+  const labels = ["Hoop\nI=mR²", "Disk\nI=½mR²", "Sphere\nI=⅖mR²"];
+  const g = 9.81;
+  const th = rad(angle);
+  // Rolling acceleration: a = g·sinθ / (1 + β)
+  const accels = betas.map(b => g * Math.sin(th) / (1 + b));
+
+  useEffect(() => {
+    stateRef.current = { positions: [0, 0, 0], t: 0 };
+    setPositions([0, 0, 0]);
+  }, [angle]);
+
+  useEffect(() => {
+    if (!running) { cancelAnimationFrame(rafRef.current); return; }
+    let last = performance.now();
+    function step(now: number) {
+      const dt = Math.min((now - last) / 1000, 0.03);
+      last = now;
+      const s = stateRef.current;
+      s.t += dt;
+      s.positions = s.positions.map((p, i) => Math.min(p + accels[i] * s.t * dt * 60, DIST));
+      if (s.positions.every(p => p >= DIST)) { setRunning(false); }
+      setPositions([...s.positions]);
+      rafRef.current = requestAnimationFrame(step);
+    }
+    rafRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [running, accels]);
+
+  // SVG incline
+  const ox = 60;
+  const oy = 310;
+  const incL = 540;
+  const cos = Math.cos(th);
+  const sin = Math.sin(th);
+
+  const sphereWinsMet = positions[2] >= DIST && positions[2] > positions[1] && positions[2] > positions[0];
+
+  return (
+    <>
+      <WidgetShell
+        title="Rolling race — moment of inertia and speed"
+        onReset={() => { setRunning(false); stateRef.current = { positions: [0, 0, 0], t: 0 }; setPositions([0, 0, 0]); }}
+        caption="All three have the same mass and radius. The one with less rotational inertia (smaller β) accelerates faster."
+      >
+        <svg viewBox={`0 0 ${W} ${H}`} className="block w-full rounded-lg bg-[#fbfaf7]">
+          {/* incline */}
+          <polygon points={`${ox},${oy} ${ox + incL * cos},${oy} ${ox + incL * cos},${oy - incL * sin}`}
+            fill="#ece8dd" stroke="#8a8a9b" strokeWidth={1.5} />
+          {[...Array(10)].map((_, i) => (
+            <line key={i} x1={ox + i * 55} y1={oy} x2={ox + i * 55 - 10} y2={oy + 12} stroke="#c4c0b4" strokeWidth={1.2} />
+          ))}
+
+          {/* rolling objects */}
+          {positions.map((p, i) => {
+            const r = 18 - i * 2;
+            const cx = ox + p * cos - 10 * sin + (i - 1) * 0;
+            const cy = oy - p * sin - r - 2 + (i - 1) * 0;
+            const lane = [ox - 10, ox + 14, ox + 38][i];
+            const lx = lane + p * cos;
+            const ly = oy - p * sin - r;
+            // lane offset perpendicular to slope
+            const offx = [-25, 0, 25][i];
+            const offy = [-offx * sin / cos * 0, 0, 0][i];
+            const rx = ox + p * cos + offx * (-sin);
+            const ry = oy - p * sin + offx * cos - r;
+            return (
+              <g key={i}>
+                <circle cx={rx} cy={ry} r={r}
+                  fill={colors[i]} opacity={0.8} stroke="#fff" strokeWidth={2} />
+                {i === 0 && <circle cx={rx} cy={ry} r={r - 5} fill="none" stroke="#fff" strokeWidth={2} opacity={0.5} />}
+              </g>
+            );
+          })}
+
+          {/* lane labels */}
+          {[RED, GREEN, BLUE].map((c, i) => (
+            <text key={i} x={ox + DIST * cos + ([-30, 0, 30][i]) * (-sin) + 10} y={oy - DIST * sin + ([-30, 0, 30][i]) * cos - 12}
+              fontFamily="Inter, sans-serif" fontSize="10.5" fill={c} fontWeight="700">
+              {["Hoop", "Disk", "Sphere"][i]}
+            </text>
+          ))}
+
+          {/* finish line */}
+          <line x1={ox + DIST * cos - 20 * sin} y1={oy - DIST * sin - 20 * cos}
+            x2={ox + DIST * cos + 20 * sin} y2={oy - DIST * sin + 20 * cos}
+            stroke="#caa53d" strokeWidth={3} strokeDasharray="8 4" />
+        </svg>
+        <ControlBar>
+          <LabeledSlider label="angle" value={angle} min={5} max={60} step={1} onChange={setAngle}
+            fmt={v => `${v.toFixed(0)}°`} />
+          <WidgetButton onClick={() => {
+            stateRef.current = { positions: [0, 0, 0], t: 0 };
+            setPositions([0, 0, 0]);
+            setRunning(true);
+          }} active={running}>
+            {running ? "Racing…" : "Start race"}
+          </WidgetButton>
+          {accels.map((a, i) => (
+            <Readout key={i} label={["a_hoop", "a_disk", "a_sphere"][i]}
+              value={`${a.toFixed(3)} m/s²`} color={colors[i]} />
+          ))}
+        </ControlBar>
+      </WidgetShell>
+      <Challenge id="phys5-rolling-sphere-wins" met={sphereWinsMet}>
+        Run the race and verify that the sphere wins (reaches the finish line first). The sphere
+        has the smallest <M>{"\\beta = 2/5"}</M> and thus the largest rolling acceleration.
+      </Challenge>
+    </>
+  );
+}
+
+export default function Rotation() {
+  return (
+    <div>
+      <PageHeader
+        chapter="Chapter 5"
+        section="College Physics & Dynamics"
+        title="Rotational Motion"
+        lede="Rotation is translation's counterpart. Torque drives angular acceleration, moment of inertia resists it, and angular momentum is conserved when the net torque is zero."
+      />
+
+      <p>
+        Every translational concept has a rotational analogue. Position becomes angular
+        position <M>{"\\theta"}</M>, velocity becomes angular velocity <M>{"\\omega"}</M>,
+        force becomes torque <M>{"\\tau"}</M>, and mass becomes moment of inertia <M>{"I"}</M>.
+        Newton's second law for rotation is:
+      </p>
+      <Eq>{"\\tau = I\\alpha, \\qquad \\tau = r \\times F = F\\,d\\,\\sin\\theta."}</Eq>
+      <p>
+        The lever arm <M>{"d"}</M> is the perpendicular distance from the pivot to the line
+        of action of the force. Doubling the lever arm doubles the torque for the same force.
+      </p>
+
+      <TorqueLeverArm />
+
+      <H2>Moment of inertia depends on mass distribution</H2>
+      <p>
+        Moment of inertia is the rotational analogue of mass. For a collection of point
+        masses, <M>{"I = \\sum m_i r_i^2"}</M>. For continuous bodies, the formula depends
+        on how mass is distributed relative to the rotation axis:
+      </p>
+      <Eq>{"I_{\\text{hoop}} = mR^2, \\quad I_{\\text{disk}} = \\tfrac{1}{2}mR^2, \\quad I_{\\text{sphere}} = \\tfrac{2}{5}mR^2."}</Eq>
+
+      <MomentOfInertia />
+
+      <H2>Rolling without slipping</H2>
+      <p>
+        A rolling object must accelerate both its center of mass (translation) and its
+        rotation together. For an object with <M>{"I = \\beta m R^2"}</M>, the rolling
+        acceleration down a slope is:
+      </p>
+      <Eq>{"a = \\frac{g\\sin\\theta}{1+\\beta}."}</Eq>
+      <p>
+        Smaller <M>{"\\beta"}</M> means less rotational inertia, so more acceleration goes
+        into translation. The solid sphere (<M>{"\\beta=2/5"}</M>) always beats the hoop{" "}
+        (<M>{"\\beta=1"}</M>) down a ramp — regardless of mass or radius.
+      </p>
+
+      <RollingRace />
+
+      <KeyIdea>
+        Rolling without slipping ties translational and rotational motion together through
+        the constraint <M>{"v = R\\omega"}</M>. This coupling is why mass distribution
+        matters for racing down a slope.
+      </KeyIdea>
+
+      <Aside>
+        In robotics, every joint rotates a link. The link's moment of inertia about the
+        joint axis determines how much torque the actuator needs to accelerate it. The
+        mass matrix in robot dynamics is built from the moments and products of inertia
+        of every link.
+      </Aside>
+
+      <BookRef>
+        Physics track: angular kinematics, torque, moment of inertia, rotational kinetic
+        energy, rolling motion, angular momentum.
+      </BookRef>
+      <PhysicsRef />
+    </div>
+  );
+}

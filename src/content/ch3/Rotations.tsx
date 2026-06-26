@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef } from "../../components/prose";
+import { PageHeader, H2, M, Eq, KeyIdea, BookRef } from "../../components/prose";
 import { WidgetShell, ControlBar, WidgetButton, Readout } from "../../components/widgets/WidgetShell";
 import { Challenge } from "../../components/widgets/Challenge";
 import { Quiz } from "../../components/widgets/Quiz";
@@ -18,19 +18,44 @@ export default function Rotations() {
         lede="Nine numbers to describe three degrees of freedom — and every one of the nine has a direct physical meaning you can point at."
       />
 
+      <H2>Two frames</H2>
+      <p>
+        A <strong>reference frame</strong> is a choice of origin and three mutually perpendicular
+        unit vectors — <span className="cx">x̂</span>, <span className="cy">ŷ</span>,{" "}
+        <span className="cz">ẑ</span> — obeying the right-hand rule:{" "}
+        <M>{"\\hat{x} \\times \\hat{y} = \\hat{z}"}</M>. Every vector we write as{" "}
+        <M>{"(a, b, c)"}</M> is measured in some frame; the same physical arrow has different
+        numerical components in a different frame.
+      </p>
+      <p>
+        Two frames appear throughout this book. The <strong>space frame</strong>{" "}
+        <M>{"\\{s\\}"}</M> is fixed to the world and never moves. The{" "}
+        <strong>body frame</strong> <M>{"\\{b\\}"}</M> is attached to the rigid body and moves
+        with it. Orientation is inherently relative — "how is the body turned?" only makes sense
+        when you specify: turned relative to <em>what?</em> A rotation matrix answers:{" "}
+        <em>how is <M>{"\\{b\\}"}</M> oriented, as measured in <M>{"\\{s\\}"}</M>?</em>
+      </p>
       <p>
         Attach a frame to a rigid body: three perpendicular unit vectors{" "}
         <span className="cx">x̂</span>, <span className="cy">ŷ</span>,{" "}
-        <span className="cz">ẑ</span> riding along with it (the <em>body frame</em> {"{b}"}). Fix
-        another frame to the world (the <em>space frame</em> {"{s}"}). The orientation of the body
-        is captured by one question: <em>where do the body's three axes point, measured in the
-        space frame?</em>
+        <span className="cz">ẑ</span> riding along with it (the body frame{" "}
+        <M>{"\\{b\\}"}</M>). Fix another frame to the world (the space frame{" "}
+        <M>{"\\{s\\}"}</M>). The orientation of the body is captured by one question:{" "}
+        <em>where do the body's three axes point, measured in the space frame?</em>
       </p>
       <p>
-        Each axis is a 3-vector, so the answer is nine numbers. Stack them as columns and you have
-        the rotation matrix:
+        Each axis is a 3-vector expressed in <M>{"\\{s\\}"}</M>, so the answer is nine numbers.
+        Stack them as columns and you have the rotation matrix:
       </p>
       <Eq>{"R_{sb} \\;=\\; \\begin{bmatrix} | & | & | \\\\ \\textcolor{#d9483f}{\\hat{\\mathrm{x}}_b} & \\textcolor{#2f9e44}{\\hat{\\mathrm{y}}_b} & \\textcolor{#3b6fd4}{\\hat{\\mathrm{z}}_b} \\\\ | & | & | \\end{bmatrix}"}</Eq>
+      <p>
+        The subscript <M>{"sb"}</M> is a reading guide: the right letter (<M>{"b"}</M>) is the
+        frame being described; the left letter (<M>{"s"}</M>) is the frame doing the measuring.{" "}
+        <M>{"R_{sb}"}</M> is "the body frame, expressed in the space frame." The convention scales
+        naturally: <M>{"R_{ab}\\,R_{bc} = R_{ac}"}</M> — inner subscripts cancel like fractions,
+        and the result skips directly from <M>{"c"}</M> to <M>{"a"}</M>. If the inner subscripts
+        do not match, the product is physically meaningless.
+      </p>
       <p>
         That is the whole secret. Rotate the body below and watch the columns <em>be</em> the
         axes:
@@ -59,6 +84,22 @@ export default function Rotations() {
         A lovely consequence of <M>{"R^\\mathsf{T}R = I"}</M>: inversion is free,
       </p>
       <Eq>{"R^{-1} = R^\\mathsf{T}, \\qquad R_{bs} = R_{sb}^\\mathsf{T}."}</Eq>
+      <p>
+        SO(3) is a <em>group</em>: the product of two rotation matrices is a rotation matrix
+        (closure); <M>{"I"}</M> is the identity; every element has an inverse. Crucially, it is a{" "}
+        <strong>non-commutative</strong> group — <M>{"R_1 R_2 \\neq R_2 R_1"}</M> in general.
+        This is physical, not algebraic: rotate a book 90° about <M>{"\\hat{x}"}</M> then 90°
+        about <M>{"\\hat{z}"}</M> and compare with the reversed order. They land in different
+        places. The next widget demonstrates this.
+      </p>
+      <p>
+        The 2D version is <M>{"SO(2)"}</M> — rotation matrices in the plane:
+      </p>
+      <Eq>{"R = \\begin{bmatrix} \\cos\\theta & -\\sin\\theta \\\\ \\sin\\theta & \\cos\\theta \\end{bmatrix} \\in SO(2)."}</Eq>
+      <p>
+        Unlike SO(3), this group <em>is</em> commutative — adding angles always commutes. The
+        non-commutativity of rotations is a purely 3D (and higher-dimensional) phenomenon.
+      </p>
 
       <H2>Order matters</H2>
       <p>
@@ -97,25 +138,46 @@ export default function Rotations() {
 
       <H2>One matrix, three jobs</H2>
       <p>
-        The same matrix <M>{"R_{sb}"}</M> serves three distinct purposes, and keeping them straight
-        prevents most frame bugs: <strong>(1) represent</strong> an orientation — the columns are
-        the body axes; <strong>(2) change frames</strong> — for a vector with body coordinates{" "}
-        <M>{"p_b"}</M>, the space coordinates are <M>{"p_s = R_{sb}\\, p_b"}</M>{" "}
-        (the subscripts cancel diagonally: <M>{"s\\!\\leftarrow\\! b"}</M>); and{" "}
-        <strong>(3) rotate</strong> a vector within one frame, <M>{"p' = Rp"}</M>.
+        The same matrix <M>{"R_{sb}"}</M> serves three distinct purposes. Keeping them straight
+        eliminates most frame-related bugs.
       </p>
-      <Aside>
-        The subscript-cancellation habit scales to long chains:{" "}
-        <M>{"R_{ac} = R_{ab}R_{bc}"}</M>, <M>{"R_{ad} = R_{ab}R_{bc}R_{cd}"}</M>, … If the inner
-        subscripts don't match, the product is meaningless — a unit check for frames.
-      </Aside>
       <p>
-        Finally, the widget's <em>space / body</em> toggle is a theorem in disguise. Rotating
-        about a <em>space-frame</em> axis means <strong>pre-multiplying</strong>:{" "}
-        <M>{"R \\leftarrow \\mathrm{Rot}(\\hat\\omega, \\delta)\\, R"}</M>. Rotating about the
-        body's <em>own</em> current axis means <strong>post-multiplying</strong>:{" "}
-        <M>{"R \\leftarrow R\\, \\mathrm{Rot}(\\hat\\omega, \\delta)"}</M>. Same buttons, very
-        different trajectories — go back and feel the difference.
+        <strong>Job 1 — Represent orientation.</strong> The columns of <M>{"R_{sb}"}</M> are
+        the body axes expressed in the space frame. There is nothing to compute: if you know
+        where the body's <span className="cx">x̂</span>, <span className="cy">ŷ</span>, and{" "}
+        <span className="cz">ẑ</span> axes point in the world, you already have the rotation
+        matrix.
+      </p>
+      <p>
+        <strong>Job 2 — Change coordinate frames.</strong> A point fixed in the body has body
+        coordinates <M>{"p_b"}</M>. To find its space coordinates, pre-multiply by{" "}
+        <M>{"R_{sb}"}</M>:
+      </p>
+      <Eq>{"p_s = R_{sb}\\, p_b."}</Eq>
+      <p>
+        The subscripts cancel: <M>{"s \\leftarrow \\cancel{b}\\,\\cdot\\,\\cancel{b}"}</M>. The
+        physical point has not moved; only its coordinate description has changed. The chain rule
+        extends naturally:{" "}
+        <M>{"p_s = R_{sa}\\,R_{ab}\\,R_{bc}\\,p_c = R_{sc}\\,p_c"}</M>.
+      </p>
+      <p>
+        <strong>Job 3 — Rotate a vector.</strong> Apply <M>{"R"}</M> to physically rotate a
+        vector within a single frame: <M>{"p' = R\\, p"}</M>. Unlike Job 2, the vector itself
+        changes direction — the coordinates change because the arrow points somewhere new.
+      </p>
+      <p>
+        Jobs 2 and 3 produce identical arithmetic but mean opposite things. Job 2 re-expresses a
+        fixed thing in a new language; Job 3 changes the thing itself. The context — are you
+        relabelling, or actually rotating? — determines which job applies.
+      </p>
+      <p>
+        The widget's <em>space / body</em> toggle exposes a fourth use. Applying a rotation
+        about a <strong>space-frame axis</strong> means pre-multiplying:{" "}
+        <M>{"R \\leftarrow R_{\\mathrm{new}}\\, R"}</M>. Applying the same rotation about the
+        body's <strong>own current axis</strong> means post-multiplying:{" "}
+        <M>{"R \\leftarrow R\\, R_{\\mathrm{new}}"}</M>. Left side of the product = space frame;
+        right side = body frame. Same buttons, fundamentally different trajectories — go back and
+        feel the difference.
       </p>
 
       <KeyIdea>

@@ -4,6 +4,7 @@ import { WidgetShell, ControlBar, LabeledSlider, WidgetButton, Readout } from ".
 import { Challenge } from "../../components/widgets/Challenge";
 import { Quiz } from "../../components/widgets/Quiz";
 import { circleIntersect } from "../../lib/svg";
+import { GroundPin, Link, nearest } from "../../components/widgets/linkage";
 import { rad, deg, wrapAngle } from "../../lib/math/vec";
 
 export default function Grubler() {
@@ -42,14 +43,60 @@ export default function Grubler() {
         moves the whole four-bar; the five-bar refuses to be pinned down by fewer than two.
       </KeyIdea>
 
-      <H2>Counting carefully</H2>
+      <H2>The five-step procedure</H2>
       <p>
-        Two classic traps. First, <strong>the ground is a link</strong> — forgetting it shifts
-        every count by <M>{"m"}</M>. Second, the formula assumes the joint constraints are{" "}
-        <em>independent</em>. A parallelogram linkage with an extra parallel link has Grübler
-        count <M>{"3(5-1-6)+6 = 0"}</M>, yet it visibly moves: its special geometry makes one
-        constraint redundant. Grübler gives a <em>lower bound</em>; degenerate geometry can beat
-        it.
+        Applied correctly, Grübler is mechanical. Follow these steps in order and you will not
+        make an error.
+      </p>
+      <p>
+        <strong>Step 1 — Count links N.</strong> Every rigid body in the mechanism is a link,
+        including the fixed ground. The ground is always link 1.
+      </p>
+      <p>
+        <strong>Step 2 — Count joints J.</strong> A joint connects exactly{" "}
+        <em>two</em> links. Count the number of such pairwise connections. If three links meet at
+        one physical point (one common pin), that is <em>two</em> joints at that location, not one
+        — each joint connects a distinct pair of links.
+      </p>
+      <p>
+        <strong>Step 3 — Determine <M>{"f_i"}</M> for each joint.</strong> From the joint types
+        table: revolute and prismatic give <M>{"f = 1"}</M>; cylindrical and universal give{" "}
+        <M>{"f = 2"}</M>; spherical gives <M>{"f = 3"}</M>.
+      </p>
+      <p>
+        <strong>Step 4 — Choose m.</strong> If all motion is confined to a plane, <M>{"m = 3"}</M>.
+        If bodies move freely in space, <M>{"m = 6"}</M>.
+      </p>
+      <p>
+        <strong>Step 5 — Substitute.</strong>{" "}
+        <M>{"\\mathrm{dof} = m(N - 1 - J) + \\sum f_i"}</M>. If the result is negative, the
+        mechanism is overconstrained (rigid, or mechanically impossible unless geometry is special).
+        If zero, the mechanism is a rigid structure. If positive, you have that many independent
+        inputs to control.
+      </p>
+
+      <H2>Two classic traps</H2>
+      <p>
+        <strong>Trap 1: forgetting the ground.</strong> Ground is a link. A four-bar linkage has
+        four links, not three. Forgetting ground reduces <M>{"N"}</M> by 1, which shifts the
+        formula result by <M>{"m"}</M> — an error of 3 (planar) or 6 (spatial).
+      </p>
+      <p>
+        <strong>Trap 2: the overlapping joints problem.</strong> When three links share a common
+        pin, there is a tendency to count one joint. The correct model has two joints — one
+        connecting links A to B, one connecting links B to C. Modeling it as one joint reduces{" "}
+        <M>{"J"}</M> by 1 and increases <M>{"N"}</M> by 0, corrupting the count by{" "}
+        <M>{"m - f_i"}</M>. When in doubt, ask: which <em>pair</em> of links is being connected?
+        Count pairs, not pins.
+      </p>
+      <p>
+        <strong>Trap 3: redundant constraints.</strong> Grübler assumes every constraint is
+        independent — that no joint's equation is derivable from the others. When geometry is
+        special, this fails. A parallelogram four-bar with an extra parallel link gives{" "}
+        <M>{"3(5 - 1 - 6) + 6 = 0"}</M> by Grübler, yet it visibly moves: one of the six
+        constraints is linearly dependent on the others because of the parallel geometry. The true
+        DOF is 1. Grübler gives a <em>lower bound</em> whenever constraints are not
+        in general position; the actual DOF may be higher.
       </p>
 
       <Quiz
@@ -125,7 +172,8 @@ function LinkagePlayground() {
 
   const setCrank = (v: number) => {
     if (mech === "fourbar") {
-      setSpun(s => Math.min(7, s + Math.abs(wrapAngle(v - lastT1.current))));
+      const delta = Math.abs(wrapAngle(v - lastT1.current));
+      setSpun(s => Math.min(7, s + delta));
     }
     lastT1.current = v;
     setT1(v);
@@ -228,44 +276,7 @@ function LinkagePlayground() {
   );
 }
 
-/* ---- drawing helpers ---- */
-
-function GroundPin({ x, y }: { x: number; y: number }) {
-  return (
-    <g stroke="#50525e" strokeWidth={1.6}>
-      <line x1={x - 14} y1={y + 16} x2={x + 14} y2={y + 16} />
-      <line x1={x - 9} y1={y + 16} x2={x - 15} y2={y + 25} />
-      <line x1={x} y1={y + 16} x2={x - 6} y2={y + 25} />
-      <line x1={x + 9} y1={y + 16} x2={x + 3} y2={y + 25} />
-      <line x1={x} y1={y} x2={x - 11} y2={y + 16} />
-      <line x1={x} y1={y} x2={x + 11} y2={y + 16} />
-    </g>
-  );
-}
-
-function Link({ a, b, color = "#50525e", w: width = 7 }: { a: [number, number]; b: [number, number]; color?: string; w?: number }) {
-  return (
-    <g>
-      <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke={color} strokeWidth={width} strokeLinecap="round" opacity={0.85} />
-      <circle cx={a[0]} cy={a[1]} r={5} fill="#fff" stroke="#33343d" strokeWidth={1.8} />
-      <circle cx={b[0]} cy={b[1]} r={5} fill="#fff" stroke="#33343d" strokeWidth={1.8} />
-    </g>
-  );
-}
-
-function nearest(
-  prev: [number, number] | null,
-  s1: [number, number] | null,
-  s2: [number, number] | null,
-): [number, number] | null {
-  if (!s1 && !s2) return null;
-  if (!s1) return s2;
-  if (!s2) return s1;
-  if (!prev) return s1;
-  const d1 = (s1[0] - prev[0]) ** 2 + (s1[1] - prev[1]) ** 2;
-  const d2 = (s2[0] - prev[0]) ** 2 + (s2[1] - prev[1]) ** 2;
-  return d1 <= d2 ? s1 : s2;
-}
+/* ---- mechanisms ---- */
 
 function FourBar({ t1, prevSol }: { t1: number; prevSol: React.MutableRefObject<[number, number] | null> }) {
   const O2: [number, number] = [200, 290];
