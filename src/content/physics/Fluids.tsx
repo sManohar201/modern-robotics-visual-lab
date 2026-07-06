@@ -1,6 +1,7 @@
-import { useState, useMemo } from "react";
-import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef, PhysicsRef } from "../../components/prose";
+import { useState } from "react";
+import { PageHeader, H2, M, Eq, KeyIdea, Aside, Worked, BookRef, PhysicsRef } from "../../components/prose";
 import { Challenge } from "../../components/widgets/Challenge";
+import { Quiz } from "../../components/widgets/Quiz";
 import { ControlBar, LabeledSlider, Readout, WidgetShell } from "../../components/widgets/WidgetShell";
 import { clamp } from "../../lib/math/vec";
 
@@ -10,7 +11,6 @@ const RED = "#d9483f";
 const GREEN = "#2f9e44";
 const BLUE = "#3b6fd4";
 const PURPLE = "#6741d9";
-const ORANGE = "#c2571c";
 const WATER_COLOR = "#3b8fd4";
 
 // ------------------------------------------------------------------
@@ -26,8 +26,6 @@ function PressureDepth() {
   const tankX = 150, tankY = 40, tankW = 280, tankH = 280;
   const waterH = Math.min(tankH - 4, tankH * 0.9);
 
-  // Pressure gradient as color
-  const nLines = 12;
 
   const deepMet = P_gauge > 50000;
 
@@ -91,7 +89,7 @@ function PressureDepth() {
             const gx = 490 + (p / (rho * g * 6)) * 230 + 10;
             const gy = 30 + ((6 - d) / 6) * (H - 60 - 10) + 5;
             return { gx: clamp(gx, 490, 740), gy };
-          }).reduce((prev, curr, i, arr) => {
+          }).reduce((prev, curr, i) => {
             if (i === 0) return [prev[0], `M ${curr.gx.toFixed(1)} ${curr.gy.toFixed(1)}`];
             return [prev[0], prev[1] + ` L ${curr.gx.toFixed(1)} ${curr.gy.toFixed(1)}`];
           }, ["", ""] as string[]).length > 0 && (
@@ -370,21 +368,34 @@ export default function Fluids() {
   return (
     <div>
       <PageHeader
-        chapter="Chapter 9"
+        chapter="Physics 9"
         section="College Physics & Dynamics"
         title="Fluids and Continuum Preview"
         lede="Fluids transmit forces through pressure and flow. Two elegant laws — hydrostatics and Bernoulli — capture most of what robots encounter in underwater or aerial environments."
       />
 
       <p>
-        A fluid at rest transmits pressure equally in all directions (Pascal's principle).
-        The pressure at depth <M>{"h"}</M> below the surface is:
+        Dive to the bottom of a swimming pool and your ears ache. Nothing is touching them —
+        except everything: <strong>pressure</strong> is force spread over area (measured in
+        pascals, 1 Pa = 1 N/m²), and a fluid at rest pushes with the same pressure in every
+        direction at a given point (Pascal's principle). Why does depth matter? Because at
+        depth <M>{"h"}</M> you are literally carrying the weight of the water column above
+        you:
       </p>
       <Eq>{"P = P_0 + \\rho g h,"}</Eq>
       <p>
-        where <M>{"P_0"}</M> is the surface pressure and <M>{"\\rho"}</M> is the fluid
-        density. This linear dependence on depth means a dam holds back force proportional
-        to the square of depth — the deeper the reservoir, the much greater the force.
+        where <M>{"P_0"}</M> is the surface pressure and <M>{"\\rho"}</M> (rho) is the fluid's{" "}
+        <strong>density</strong> — mass per unit volume, 1000 kg/m³ for water. Read it back:
+        every 10 m of water adds about <M>{"1000 \\times 9.81 \\times 10 \\approx 98"}</M> kPa
+        — one whole atmosphere. Your ears report the first meter.
+      </p>
+
+      <p>
+        <strong>Try this:</strong> drag the depth to 5 m in water and note the pressure; then
+        switch the density slider to mercury (13,600 kg/m³) and watch the same depth become
+        crushing. Depth and density are the only knobs — the <em>shape</em> of the container
+        never appears in the formula, which is why a thin standpipe can burst a barrel
+        (Pascal's famous demonstration).
       </p>
 
       <PressureDepth />
@@ -400,8 +411,43 @@ export default function Fluids() {
         less than or equal to the fluid density. At equilibrium, it displaces exactly its
         own weight of fluid.
       </p>
+      <p>
+        Where does the upward force really come from? From the previous section: pressure
+        grows with depth, so the fluid pushes harder on an object's <em>bottom</em> than on
+        its top. Buoyancy is not a new force — it is the pressure-depth law applied to both
+        ends of an object at once.
+      </p>
+
+      <p>
+        <strong>Try this:</strong> set the object's density just below the fluid's and watch
+        it float nearly submerged; at exactly half the fluid's density it rides half out of
+        the water — the submerged fraction <em>equals</em> the density ratio. Then push the
+        density above the fluid's and watch it sink: no shape or size adjustment can save an
+        object denser than what it displaces (unless, like a ship, it changes its{" "}
+        <em>average</em> density by enclosing air).
+      </p>
 
       <BuoyancySandbox />
+
+      <Worked title="How much of an iceberg hides underwater?">
+        <p>
+          <strong>Given.</strong> Ice has density 920 kg/m³; seawater 1025 kg/m³. What
+          fraction of an iceberg floats below the surface?
+        </p>
+        <p>
+          <strong>Set up.</strong> Floating equilibrium: weight = buoyancy, so{" "}
+          <M>{"\\rho_{\\text{ice}} V g = \\rho_{\\text{sea}} V_{\\text{sub}}\\, g"}</M>.
+        </p>
+        <p>
+          <strong>Solve.</strong>{" "}
+          <M>{"V_{\\text{sub}}/V = 920/1025 \\approx 0.90"}</M> — about 90% hides below,
+          which is the literal "tip of the iceberg."
+        </p>
+        <p>
+          <strong>Check.</strong> Limits behave: density ratio → 1 means fully submerged but
+          weightless in the water; ratio → 0 (a balloon) floats entirely on top. ✓
+        </p>
+      </Worked>
 
       <KeyIdea>
         The density ratio determines floating behavior: if <M>{"\\rho_{\\text{obj}} < \\rho_{\\text{fluid}}"}</M>
@@ -419,7 +465,17 @@ export default function Fluids() {
       <p>
         Faster flow carries more kinetic energy, so pressure must decrease. A narrow section
         (smaller <M>{"A"}</M>) forces higher velocity and creates a pressure drop — the
-        Venturi effect used in carburetors, medical devices, and sensors.
+        Venturi effect used in carburetors, medical devices, and sensors. (Bernoulli's
+        equation is just the conservation-of-energy law from Module 3, written per unit
+        volume of fluid: pressure term, kinetic term, gravity term.)
+      </p>
+
+      <p>
+        <strong>Try this:</strong> squeeze the outlet area smaller and watch the exit speed
+        climb to keep <M>{"A v"}</M> constant — the garden-hose-thumb effect. Then check the
+        sign of ΔP: the <em>fast</em> section has the <em>low</em> pressure. That inversion
+        surprises everyone, and it is what the challenge below asks you to push to the
+        extreme.
       </p>
 
       <FlowTube />
@@ -431,9 +487,70 @@ export default function Fluids() {
         growing with the square of speed.
       </Aside>
 
+      <Quiz
+        challengeId="phys9-quiz"
+        goal="Answer all three correctly."
+        questions={[
+          {
+            prompt: (
+              <>
+                A tall thin tube and a wide tank are filled with water to the same height.
+                Where is the pressure at the bottom greater?
+              </>
+            ),
+            options: [
+              { label: "Equal — pressure depends only on depth and density", correct: true },
+              { label: "The wide tank — it holds more water" },
+              { label: "The thin tube — the water is more concentrated" },
+              { label: "Depends on the container material" },
+            ],
+            explain:
+              "P = P₀ + ρgh has no volume or shape in it. This 'hydrostatic paradox' is why a thin standpipe of water could burst a sturdy barrel.",
+          },
+          {
+            prompt: (
+              <>
+                A boat carrying a boulder floats in a small pond. The boulder is thrown
+                overboard and sinks. The pond's water level…
+              </>
+            ),
+            options: [
+              { label: "falls", correct: true },
+              { label: "rises" },
+              { label: "stays exactly the same" },
+              { label: "rises, then falls back" },
+            ],
+            explain:
+              "In the boat, the boulder displaces its weight of water (a large volume). On the bottom, it displaces only its own volume — less. Classic Archimedes brain-teaser.",
+          },
+          {
+            prompt: <>In the narrow section of a Venturi tube, the fluid has…</>,
+            options: [
+              { label: "higher speed and lower pressure", correct: true },
+              { label: "higher speed and higher pressure" },
+              { label: "lower speed and lower pressure" },
+              { label: "the same speed and pressure as everywhere else" },
+            ],
+            explain:
+              "Continuity forces the speed up; Bernoulli's energy budget then forces the pressure down. Fast = low pressure is the counterintuitive half of fluid dynamics.",
+          },
+        ]}
+      />
+
+      <H2>Where you'll use this in Modern Robotics</H2>
+      <p>
+        This module is deliberately a preview rather than a dependency: the Modern Robotics
+        book stays on dry land. But real robots don't — underwater vehicles must trim
+        buoyancy against thruster force, drones live on Bernoulli, and any fast-moving arm
+        feels <M>{"v^2"}</M> drag. More deeply, the "continuum" view — treating matter as a
+        field with pressure and velocity at every point — is the same mental upgrade you'll
+        make in Chapter 3 when a rigid body stops being a thing at a position and becomes a
+        whole field of moving points.
+      </p>
+
       <BookRef>
-        Physics track: pressure, hydrostatics, buoyancy, Archimedes, continuity, Bernoulli
-        equation, drag.
+        Physics track · Module 9 of 10: pressure, hydrostatics, buoyancy, Archimedes,
+        continuity, Bernoulli equation, drag.
       </BookRef>
       <PhysicsRef />
     </div>

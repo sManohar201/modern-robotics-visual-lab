@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect, useMemo } from "react";
-import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef, PhysicsRef } from "../../components/prose";
+import { useState, useRef, useEffect } from "react";
+import { PageHeader, H2, M, Eq, KeyIdea, Aside, Worked, BookRef, PhysicsRef } from "../../components/prose";
 import { Challenge } from "../../components/widgets/Challenge";
+import { Quiz } from "../../components/widgets/Quiz";
 import { ControlBar, LabeledSlider, Readout, WidgetShell, WidgetButton } from "../../components/widgets/WidgetShell";
-import { clamp } from "../../lib/math/vec";
 
 const W = 760;
 const H = 360;
@@ -11,7 +11,6 @@ const GREEN = "#2f9e44";
 const BLUE = "#3b6fd4";
 const PURPLE = "#6741d9";
 const ORANGE = "#c2571c";
-const GOLD = "#caa53d";
 const G = 9.81;
 
 // ------------------------------------------------------------------
@@ -28,14 +27,13 @@ function TwoLinkArmDynamics() {
   const [m2, setM2] = useState(1.5);
   const [showGravity, setShowGravity] = useState(true);
   const [showCoriolis, setShowCoriolis] = useState(true);
-  const [showInertia, setShowInertia] = useState(true);
+  const [showInertia] = useState(true);
 
   const t1 = th1 * Math.PI / 180;
   const t2 = th2 * Math.PI / 180;
 
   // Mass matrix M(θ)
   const I1 = m1 * L1 * L1 / 3 + m2 * L1 * L1;
-  const I12 = m2 * L1 * L2 * Math.cos(t2);
   const I2 = m2 * L2 * L2 / 3;
 
   const M11 = I1 + I2 + m2 * L1 * L2 * Math.cos(t2) * 2;
@@ -69,8 +67,6 @@ function TwoLinkArmDynamics() {
   const x2 = x1 + L2 * scl * Math.cos(t1 + t2);
   const y2 = y1 - L2 * scl * Math.sin(t1 + t2);
 
-  // Gravity compensation torques (to hold still: τ = g(θ))
-  const gravMet = showGravity && !showCoriolis && Math.abs(tau1) > 0.1;
 
   function ArmLink({ ax, ay, bx, by, color, w }: { ax: number; ay: number; bx: number; by: number; color: string; w: number }) {
     return (
@@ -347,27 +343,66 @@ export default function RoboticsB() {
   return (
     <div>
       <PageHeader
-        chapter="Chapter 10"
+        chapter="Physics 10"
         section="College Physics & Dynamics"
         title="Dynamics for Robotics"
         lede="Robot dynamics combines Lagrangian mechanics and rigid body inertia into a single equation: M(θ)θ̈ + C(θ,θ̇)θ̇ + g(θ) = τ. Each term has a clear physical interpretation."
       />
 
       <p>
-        A robot arm is a chain of rigid bodies connected by actuated joints. Applying the
-        Euler-Lagrange equations to the robot's kinetic and potential energy gives the
-        <strong>manipulator equation of motion</strong>:
+        Hold your arm straight out to the side. Within a minute your shoulder burns — it is
+        producing a constant torque against gravity just to hold still. Now imagine you are
+        the motor controller for a robot shoulder: how much torque, exactly, and how does it
+        change as the elbow bends? This module is the capstone of the physics track — every
+        piece you've built (Newton, energy, torque, moment of inertia, Lagrange) assembles
+        here into the single equation that runs every robot arm. Apply the Euler-Lagrange
+        crank from Module 8 to a chain of rigid links and the answer always organizes itself
+        as the <strong>manipulator equation of motion</strong>:
       </p>
       <Eq>{"M(\\theta)\\ddot{\\theta} + C(\\theta,\\dot{\\theta})\\dot{\\theta} + g(\\theta) = \\tau."}</Eq>
       <p>
-        Three terms arise naturally:
-        {" "}<strong><M>{"M(\\theta)"}</M></strong> — the configuration-dependent mass matrix (inertia),
-        {" "}<strong><M>{"C(\\theta,\\dot\\theta)\\dot\\theta"}</M></strong> — Coriolis and centrifugal
-        forces, and
-        {" "}<strong><M>{"g(\\theta)"}</M></strong> — gravity compensation torques.
+        Read it back, term by term. <strong><M>{"M(\\theta)"}</M></strong> is the{" "}
+        <strong>mass matrix</strong> — the arm's moment of inertia grown up into a matrix,
+        because in a chain, accelerating one joint drags mass around every other joint too;
+        it depends on the pose <M>{"\\theta"}</M> because an outstretched arm carries its
+        mass farther from the axes (the skater effect from Module 5).{" "}
+        <strong><M>{"C(\\theta,\\dot\\theta)\\dot\\theta"}</M></strong> collects the
+        velocity-coupling (Coriolis and centrifugal) torques that appear only while moving.{" "}
+        <strong><M>{"g(\\theta)"}</M></strong> is the gravity torque at each joint — your
+        burning shoulder. And <M>{"\\tau"}</M> is what the motors must supply.
+      </p>
+
+      <p>
+        <strong>Try this:</strong> in the widget, straighten the arm out horizontally (θ₁ = 0°,
+        θ₂ = 0°) and watch <M>{"g_1"}</M> hit its maximum. Fold the elbow back (θ₂ toward
+        ±170°) and watch both <M>{"g_1"}</M> <em>and</em> <M>{"M_{11}"}</M> drop — the same
+        fold helps the shoulder twice, against gravity and against inertia. Then point the
+        whole arm straight up and watch the gravity torques vanish entirely.
       </p>
 
       <TwoLinkArmDynamics />
+
+      <Worked title="The burning-shoulder number">
+        <p>
+          <strong>Given.</strong> The widget's default arm (m₁ = 2 kg, L₁ = 1 m, m₂ = 1.5 kg,
+          L₂ = 0.8 m) held straight out horizontally. What torque does the shoulder motor
+          hold?
+        </p>
+        <p>
+          <strong>Set up.</strong> Each link's weight acts at its center:{" "}
+          <M>{"g_1 = m_1 g \\tfrac{L_1}{2} + m_2 g\\left(L_1 + \\tfrac{L_2}{2}\\right)"}</M>.
+        </p>
+        <p>
+          <strong>Solve.</strong>{" "}
+          <M>{"g_1 = 2(9.81)(0.5) + 1.5(9.81)(1.4) \\approx 9.8 + 20.6 = 30.4"}</M> N·m.
+        </p>
+        <p>
+          <strong>Check.</strong> Set θ₁ = 0°, θ₂ = 0° in the widget and read g₁ — it should
+          say ≈ 30.4. Note the far link contributes twice as much despite weighing less:
+          lever arm beats mass. This is why real robot forearms are skinny and shoulder
+          motors are huge.
+        </p>
+      </Worked>
 
       <H2>The Coriolis effect</H2>
       <p>
@@ -378,7 +413,18 @@ export default function RoboticsB() {
       <p>
         In robot dynamics the Coriolis matrix <M>{"C(\\theta,\\dot\\theta)"}</M> captures
         these coupling effects between joint velocities. When one joint spins fast while
-        another moves, large coupling torques appear.
+        another moves, large coupling torques appear. ("Fictitious" doesn't mean fake — the
+        torque the motor must supply is perfectly real; it means the force appears only
+        because you insisted on doing your bookkeeping in a rotating frame.)
+      </p>
+
+      <p>
+        <strong>Try this:</strong> press play and watch the same journey from two points of
+        view at once — the dashed green line is the honest straight path seen from outside,
+        the purple curve is what an observer riding the turntable records. Crank ω up and the
+        curl tightens. Note the force formula <M>{"F = 2m\\omega v"}</M>: it needs{" "}
+        <em>both</em> rotation and motion — stand still on the turntable and the Coriolis
+        force is zero.
       </p>
 
       <CoriolisExplorer />
@@ -403,12 +449,78 @@ export default function RoboticsB() {
       <Aside>
         The Chapter 8 manipulator dynamics (Modern Robotics textbook) derives <M>{"M"}</M>,{" "}
         <M>{"C"}</M>, and <M>{"g"}</M> using the spatial momentum formulation and Newton-Euler
-        recursion. This page shows the same physics through the Lagrangian lens.
+        recursion. This page shows the same physics through the Lagrangian lens — when you
+        reach Chapter 8, you'll re-meet the challenges above in the book's own notation.
       </Aside>
 
+      <Quiz
+        challengeId="phys10-quiz"
+        goal="Answer all three correctly."
+        questions={[
+          {
+            prompt: (
+              <>
+                A robot arm is holding perfectly still (<M>{"\\dot\\theta = \\ddot\\theta = 0"}</M>).
+                What must the motors supply?
+              </>
+            ),
+            options: [
+              { label: "τ = g(θ) — exactly the gravity torques, nothing else", correct: true },
+              { label: "τ = 0 — nothing is moving" },
+              { label: "The full M, C, and g terms" },
+              { label: "Only the Coriolis torques" },
+            ],
+            explain:
+              "With zero velocity and acceleration, the M and C terms vanish and the equation collapses to τ = g(θ). Holding still is real work — ask your shoulder.",
+          },
+          {
+            prompt: <>Why does the mass matrix M depend on the configuration θ?</>,
+            options: [
+              {
+                label: "The links' mass sits at different distances from the joint axes in different poses",
+                correct: true,
+              },
+              { label: "The links' masses change as the arm moves" },
+              { label: "It doesn't — mass is constant" },
+              { label: "Because gravity is stronger in some poses" },
+            ],
+            explain:
+              "Moment of inertia is Σmr² — same masses, different r as the arm folds and extends. The skater pulling her arms in is a robot changing its own M(θ).",
+          },
+          {
+            prompt: (
+              <>
+                When are the Coriolis/centrifugal torques{" "}
+                <M>{"C(\\theta,\\dot\\theta)\\dot\\theta"}</M> exactly zero?
+              </>
+            ),
+            options: [
+              { label: "Whenever the arm's joints aren't moving", correct: true },
+              { label: "Whenever the arm is fully extended" },
+              { label: "Never — they always act" },
+              { label: "Only in zero gravity" },
+            ],
+            explain:
+              "Every term in C is built from products of joint velocities: F = 2mωv needs motion in a rotating frame. Slow robots can often ignore C; fast ones cannot.",
+          },
+        ]}
+      />
+
+      <H2>Where you go from here</H2>
+      <p>
+        You now hold every physical idea Modern Robotics assumes. Chapter 2 starts the book
+        proper by asking the deceptively simple question "how many numbers does it take to say
+        where a robot is?" — and everything you've built here (frames from Module 1, torque
+        and inertia from Module 5, the Lagrangian crank from Module 8, this equation from
+        Module 10) will resurface with sharper notation as the book unfolds. When Chapter 8's
+        derivations feel dense, come back to this page: the widget above <em>is</em> that
+        chapter, in miniature.
+      </p>
+
       <BookRef>
-        Robotics bridge: Lagrangian robot dynamics, mass matrix, Coriolis terms, gravity
-        compensation, operational-space control.
+        Physics track · Module 10 of 10: Lagrangian robot dynamics, mass matrix, Coriolis
+        terms, gravity compensation, operational-space control. Bridges directly to MR §8
+        (dynamics) and §11 (control).
       </BookRef>
       <PhysicsRef />
     </div>

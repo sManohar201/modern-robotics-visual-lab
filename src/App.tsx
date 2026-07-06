@@ -3,7 +3,7 @@ import { CheckCircle2, Circle, ChevronRight, ChevronLeft } from "lucide-react";
 import { chapters, allPages, findPage, type PageDef } from "./content/registry";
 import { useProgress } from "./store/progress";
 
-const DEFAULT_PAGE = "phys1-foundations";
+const DEFAULT_PAGE = "math1-vectors";
 
 function usePageId(): [string, (id: string) => void] {
   const [id, setId] = useState(() => window.location.hash.replace(/^#\/?/, "") || DEFAULT_PAGE);

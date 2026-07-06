@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef } from "../../components/prose";
+import { PageHeader, H2, M, Eq, KeyIdea, BookRef } from "../../components/prose";
+import { Quiz } from "../../components/widgets/Quiz";
 import { WidgetShell, ControlBar, LabeledSlider, WidgetButton, Readout } from "../../components/widgets/WidgetShell";
 import { Challenge } from "../../components/widgets/Challenge";
 import { Scene3D, Triad } from "../../components/three/Scene3D";
@@ -7,7 +8,7 @@ import { type Vec3, deg, wrapAngle } from "../../lib/math/vec";
 import { Seg, Joint } from "./viz";
 import {
   type V2, fourBarPhi, fourBarPoints,
-  fiveBar, fiveBarLeftAligned, fiveBarRightAligned, FB5_L,
+  fiveBar, fiveBarLeftAligned, fiveBarRightAligned,
 } from "./mechanism";
 
 const GHOST: [string, string, string] = ["#dcb6b4", "#b8d4bd", "#b4c4dd"];
@@ -33,7 +34,14 @@ export default function Singularities() {
       <p>
         Open chains had one notion of singularity: a rank drop of the Jacobian. Closed chains split it
         into <strong>three</strong> independent types, and a single mechanism can show all of them at
-        different poses. We meet them through two planar linkages.
+        different poses. Three pieces of vocabulary first, in plain terms. A matrix{" "}
+        <strong>drops rank</strong> when the directions it can produce collapse — two outputs that
+        used to be independent suddenly point the same way, so a dimension of capability is lost.
+        The <strong>configuration space</strong> (C-space, from Chapter 2) is the set of all shapes
+        the mechanism can take; for a linkage it is typically a curve or surface. And a{" "}
+        <strong>bifurcation</strong> is a fork in the road: a point where that curve crosses itself,
+        so the mechanism arriving there has two different ways to continue. We meet all three
+        through two planar linkages.
       </p>
 
       <H2>Configuration-space singularities: where the C-space self-intersects</H2>
@@ -43,10 +51,20 @@ export default function Singularities() {
       </p>
       <Eq>{"\\phi = \\operatorname{atan2}(\\beta,\\alpha) \\pm \\cos^{-1}\\!\\Big(\\tfrac{\\gamma}{\\sqrt{\\alpha^2+\\beta^2}}\\Big)."}</Eq>
       <p>
-        Where the two branches meet, the curve crosses itself: these are <strong>bifurcation
-        points</strong>. Approaching one, the mechanism faces a choice of which branch to follow —
-        the constraint Jacobian has dropped rank. A configuration-space singularity is intrinsic to
-        the mechanism: it does not care which joints you actuate or where the tool is.
+        The <M>{"\\pm"}</M> is the interesting part: for most input angles <M>{"\\theta"}</M> there
+        are two consistent output angles <M>{"\\phi"}</M>, one per sign. Where the two branches
+        meet, the C-space curve crosses itself — a <strong>bifurcation point</strong>. A mechanism
+        arriving there faces a genuine fork: it can leave along either branch, and nothing in the
+        input angle decides which. Algebraically the constraint Jacobian has dropped rank; this
+        singularity is intrinsic to the mechanism — it does not care which joints you actuate or
+        where the tool frame is.
+      </p>
+      <p>
+        <strong>Try this:</strong> park <M>{"\\theta"}</M> somewhere mid-range and flip between{" "}
+        <em>branch +</em> and <em>branch −</em>: same input angle, two visibly different linkage
+        shapes. Then slide <M>{"\\theta"}</M> toward 0° and watch the two gold dots in the C-space
+        plot glide toward each other until they merge at the red ring — that merge is the
+        bifurcation, and the coupler flashes red.
       </p>
 
       <FourBarWidget />
@@ -71,6 +89,13 @@ export default function Singularities() {
           singularity. It depends on the tool frame but not on the actuator choice.
         </li>
       </ul>
+      <p>
+        <strong>Try this:</strong> aim for <M>{"\\theta_1\\approx 53^\\circ"}</M>,{" "}
+        <M>{"\\theta_2\\approx 20^\\circ"}</M> and watch the two inner links line up and turn red —
+        with them colinear, both motors push along the same line, so together they control one
+        direction instead of two. Then straighten the whole left leg instead: that is the familiar
+        outstretched-arm singularity from Chapter 5, now wearing its closed-chain name.
+      </p>
 
       <FiveBarWidget />
 
@@ -82,6 +107,40 @@ export default function Singularities() {
         tool frame but not the actuators. The configuration-space type is the intersection of all
         actuator singularities over every possible choice of actuated joints.
       </KeyIdea>
+
+      <Quiz
+        challengeId="ch7-sing-quiz"
+        goal={<>Tell the three singularity types apart.</>}
+        questions={[
+          {
+            prompt: <>Which singularity type stays put no matter which joints you choose to motorize?</>,
+            options: [
+              { label: <>Configuration-space — it is a self-intersection of the C-space itself</>, correct: true },
+              { label: <>Actuator — it always moves with the motors</> },
+              { label: <>End-effector — it depends only on gravity</> },
+            ],
+            explain: <>The C-space is pure geometry: which shapes the mechanism can take. Bifurcation points are baked into that geometry before anyone decides where to put motors or tools.</>,
+          },
+          {
+            prompt: <>At an actuator singularity, locking every motor…</>,
+            options: [
+              { label: <>still leaves the mechanism free to wiggle — it fails to become rigid</>, correct: true },
+              { label: <>rigidifies the mechanism as usual</> },
+              { label: <>breaks the passive joints</> },
+            ],
+            explain: <>That is the operational meaning of <M>{"\\operatorname{rank}H_p<p"}</M>: the passive joints retain a motion that the actuated ones cannot see or stop.</>,
+          },
+          {
+            prompt: <>A five-bar's left leg straightens out completely. What kind of singularity is this, and what would fix it?</>,
+            options: [
+              { label: <>End-effector type; moving the actuators elsewhere would NOT remove it</>, correct: true },
+              { label: <>Actuator type; relocating a motor removes it</> },
+              { label: <>Configuration-space type; nothing ever removes it</> },
+            ],
+            explain: <>A straightened leg is an aligned 2R chain — the tool loses a motion direction regardless of which joints happen to be driven. It depends on the tool frame, not the actuation choice.</>,
+          },
+        ]}
+      />
 
       <BookRef>Modern Robotics §7.3 — Singularities of closed chains: configuration-space, actuator, and end-effector types.</BookRef>
     </div>

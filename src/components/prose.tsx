@@ -69,6 +69,19 @@ export function Aside({ children }: { children: ReactNode }) {
   );
 }
 
+/** A fully worked numeric example: given → set up → solve → sanity-check. */
+export function Worked({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="my-7 rounded-lg border border-[#e6d9b8] bg-[#fdf9ee] px-5 py-4">
+      <div className="ui text-[10.5px] font-bold tracking-[0.16em] uppercase text-[#b08c1d] mb-1">
+        Worked example
+      </div>
+      <div className="text-[0.98rem] font-semibold mb-2">{title}</div>
+      <div className="text-[0.96rem] leading-relaxed">{children}</div>
+    </div>
+  );
+}
+
 /** Footer nav between pages. */
 export function BookRef({ children }: { children: ReactNode }) {
   return (

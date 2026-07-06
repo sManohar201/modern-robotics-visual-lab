@@ -2,9 +2,10 @@ import { useState } from "react";
 import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef } from "../../components/prose";
 import { WidgetShell, ControlBar, LabeledSlider, Readout } from "../../components/widgets/WidgetShell";
 import { Challenge } from "../../components/widgets/Challenge";
+import { Quiz } from "../../components/widgets/Quiz";
 import { Scene3D, Triad } from "../../components/three/Scene3D";
 import { type Vec3, deg } from "../../lib/math/vec";
-import { Seg, Joint, Poly, Leg } from "./viz";
+import { Joint, Poly, Leg } from "./viz";
 import { RPR_A, rprPlatformPt, rprLegs } from "./mechanism";
 
 const GHOST: [string, string, string] = ["#dcb6b4", "#b8d4bd", "#b4c4dd"];
@@ -24,16 +25,30 @@ export default function ClosedChains() {
       />
 
       <p>
-        Every robot so far has been an <em>open</em> chain — one unbroken path from base to tool. Join
-        the links into a loop and you get a <strong>closed chain</strong>. The most useful kind is a{" "}
-        <strong>parallel mechanism</strong>: a fixed platform and a moving platform joined by several{" "}
-        <em>legs</em>, each a short open chain. Think of the Stewart–Gough motion platform or the
-        fast Delta robot.
+        Grab a tray with both hands. Your left arm is a chain of joints; so is your right. But the
+        moment both hands hold the same rigid tray, something new appears: start at your chest, trace
+        with your eye up the left arm, across the tray, and back down the right arm — you are back
+        where you started. There is a <strong>loop</strong>. Now try to raise just your left hand.
+        You can't, not without the tray tilting and your right arm following. The loop couples every
+        joint to every other joint.
       </p>
       <p>
-        Two features make closed chains harder to analyze than open ones: <strong>not every joint is
-        actuated</strong> (the legs carry passive joints too), and the joint variables must satisfy{" "}
-        <strong>loop-closure constraints</strong>. One consequence is a clean reversal of difficulty:
+        Every robot so far has been an <em>open</em> chain — one unbroken path from base to tool. Join
+        the links into a loop, as your arms and the tray just did, and you get a{" "}
+        <strong>closed chain</strong>. The most useful kind is a <strong>parallel mechanism</strong>:
+        a fixed platform and a moving platform joined by several <em>legs</em>, each a short open
+        chain. Think of the Stewart–Gough motion platform under a flight simulator, or the fast Delta
+        robot picking chocolates.
+      </p>
+      <p>
+        Two features make closed chains harder to analyze than open ones. First,{" "}
+        <strong>not every joint has a motor</strong>. Joints without motors are called{" "}
+        <strong>passive joints</strong>: they swing freely, like your wrists did on the tray, and the
+        mechanism's geometry — not a controller — decides their angles. Second, the joint variables
+        are no longer free to take any values: going around the loop must bring you back exactly to
+        the start. That bookkeeping is a set of equations called the{" "}
+        <strong>loop-closure constraints</strong>, and every leg contributes one. One consequence is
+        a clean reversal of difficulty:
       </p>
       <Eq>{"\\text{serial: FK easy, IK hard} \\qquad\\Longleftrightarrow\\qquad \\text{parallel: IK easy, FK hard.}"}</Eq>
 
@@ -52,8 +67,18 @@ export default function ClosedChains() {
       <Eq>{"s_i^2 = \\big(p_x + b_{ix}\\cos\\phi - b_{iy}\\sin\\phi - a_{ix}\\big)^2 + \\big(p_y + b_{ix}\\sin\\phi + b_{iy}\\cos\\phi - a_{iy}\\big)^2."}</Eq>
       <p>
         Given the pose, the three actuator lengths drop out directly. <strong>That is the entire
-        inverse kinematics.</strong> No multiplicity, no iteration. Drag the platform and watch the
-        three legs report their lengths instantly.
+        inverse kinematics.</strong> No multiplicity, no iteration. Read the formula back: to find a
+        leg's length, walk from the world origin to the platform center (<M>{"p"}</M>), out to that
+        leg's platform anchor (<M>{"R_{sb}b_i"}</M>), then subtract where the leg starts on the
+        ground (<M>{"a_i"}</M>). What is left over is the leg itself — its length is just the norm.
+      </p>
+
+      <p>
+        <strong>Try this:</strong> slide <M>{"p_x"}</M> back and forth and watch all three lengths
+        change together — the loop couples them. Then hold position fixed and sweep only{" "}
+        <M>{"\\phi"}</M>: the platform spins in place while the legs stretch and shrink to
+        accommodate it. Nothing ever "fails to solve" — every pose you can dial in yields exactly
+        one set of leg lengths.
       </p>
 
       <RprInverseWidget />
@@ -71,6 +96,40 @@ export default function ClosedChains() {
         the difficulty flips: for parallel mechanisms the inverse kinematics is a direct formula,
         while the forward kinematics is the hard, multi-valued problem.
       </KeyIdea>
+
+      <Quiz
+        challengeId="ch7-closed-quiz"
+        goal={<>Check the closed-chain fundamentals.</>}
+        questions={[
+          {
+            prompt: <>A joint in a parallel mechanism's leg has no motor attached. Its angle is determined by…</>,
+            options: [
+              { label: <>the loop-closure geometry — it goes wherever the loop forces it</>, correct: true },
+              { label: <>the controller, indirectly through software</> },
+              { label: <>nothing; it is free to sit anywhere</> },
+            ],
+            explain: <>That is what "passive" means: the constraint that the loop must close picks the passive angles once the actuated joints are set.</>,
+          },
+          {
+            prompt: <>For a parallel mechanism like the 3×RPR, which direction of kinematics is the easy one?</>,
+            options: [
+              { label: <>Inverse: pose in, actuator lengths out — one norm per leg</>, correct: true },
+              { label: <>Forward: actuator lengths in, pose out</> },
+              { label: <>Both are equally hard</> },
+            ],
+            explain: <>Exactly backwards from a serial arm. Given the pose, each leg length is a single square root; recovering the pose from lengths is the hard, multi-valued problem.</>,
+          },
+          {
+            prompt: <>Why can't you move just one joint of a closed chain and leave the rest alone?</>,
+            options: [
+              { label: <>The loop must stay closed, so every joint's motion is coupled to the others</>, correct: true },
+              { label: <>Friction in the passive joints resists it</> },
+              { label: <>You can — closed chains behave like open ones joint-by-joint</> },
+            ],
+            explain: <>Trace the loop: if one joint moves and the others don't, the loop no longer closes. The constraints tie all the joint variables together.</>,
+          },
+        ]}
+      />
 
       <BookRef>Modern Robotics §7.1, §7.1.1 — Inverse and forward kinematics; the 3×RPR planar parallel mechanism.</BookRef>
     </div>

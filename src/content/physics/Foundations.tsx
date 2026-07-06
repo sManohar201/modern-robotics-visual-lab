@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Play, Pause } from "lucide-react";
-import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef, PhysicsRef } from "../../components/prose";
+import { PageHeader, H2, M, Eq, KeyIdea, Aside, Worked, BookRef, PhysicsRef } from "../../components/prose";
 import { Challenge } from "../../components/widgets/Challenge";
+import { Quiz } from "../../components/widgets/Quiz";
 import { ControlBar, LabeledSlider, Readout, WidgetShell, WidgetButton } from "../../components/widgets/WidgetShell";
 import { svgCoords } from "../../lib/svg";
 import { clamp, deg, rad } from "../../lib/math/vec";
@@ -51,7 +52,7 @@ export default function Foundations() {
   return (
     <div>
       <PageHeader
-        chapter="Chapter 1"
+        chapter="Physics 1"
         section="College Physics & Dynamics"
         title="Foundations of Motion"
         lede="Motion begins with a choice of coordinates. Once position is a vector, velocity and acceleration are just the first two ways that vector changes — and the answer to “how fast?” depends on who is asking."
@@ -65,6 +66,15 @@ export default function Foundations() {
         the arrow below and watch those shadows breathe in and out as sine and cosine.
       </p>
 
+      <p>
+        <strong>Try this:</strong> drag the purple tip slowly around one full circle and watch
+        the <span className="cx">red</span> shadow act out cosine while the{" "}
+        <span className="cy">green</span> one acts out sine. Then press <em>spin</em> and look
+        only at the right-hand plot: two perfect waves, a quarter-turn out of step. Finally,
+        drag the tip far from the origin and spin again — the waves get taller but never change
+        their rhythm. Amplitude and frequency are independent dials.
+      </p>
+
       <VectorScope />
 
       <p>
@@ -74,6 +84,11 @@ export default function Foundations() {
         Robotics chapters. For now the lesson is narrower: <em>a vector is one object; its components
         are frame-dependent descriptions of it.</em>
       </p>
+      <Aside>
+        If "component," "magnitude," or <M>{"\\arctan"}</M> felt fast just now, the{" "}
+        <a href="#/math1-vectors">Math 1 module on vectors</a> builds all of it from scratch —
+        this page assumes it.
+      </Aside>
 
       <H2>Velocity and acceleration are rates of change</H2>
       <p>
@@ -86,12 +101,43 @@ export default function Foundations() {
       <Eq>{"x(t) = x_0 + v_0\\,t + \\tfrac{1}{2}a\\,t^2, \\qquad v(t) = v_0 + a\\,t"}</Eq>
 
       <p>
-        Press play and watch one bead obey both at once. The slope of the position curve <em>is</em>{" "}
-        the velocity curve; the moment the velocity curve crosses zero is the moment the bead stops
-        and turns around.
+        Read the first one back: start where you started (<M>{"x_0"}</M>), add the distance your
+        starting speed would cover on its own (<M>{"v_0 t"}</M>), then add the extra distance the
+        acceleration contributes (<M>{"\\tfrac12 a t^2"}</M> — the ½ appears because the
+        acceleration has the whole interval to build up speed, so on average only half of it has
+        acted). The second formula is simpler: speed changes by <M>{"a"}</M> every second.
+      </p>
+
+      <p>
+        <strong>Try this:</strong> press play and watch one bead obey both formulas at once. The
+        slope of the position curve <em>is</em> the velocity curve; the moment the velocity curve
+        crosses zero is the moment the bead stops and turns around. Then set <M>{"a = 0"}</M> and
+        confirm the position graph becomes a straight line — no acceleration, no bending.
       </p>
 
       <KinematicsTrack />
+
+      <Worked title="Braking distance at highway speed">
+        <p>
+          <strong>Given.</strong> A car travels at <M>{"v_0 = 20"}</M> m/s (72 km/h) and the
+          driver brakes with a steady <M>{"a = -5\\ \\text{m/s}^2"}</M>. How far does the car
+          travel before it stops?
+        </p>
+        <p>
+          <strong>Set up.</strong> "Stops" means <M>{"v(t) = 0"}</M>. From{" "}
+          <M>{"v = v_0 + at"}</M>, that happens at <M>{"t = -v_0/a = 20/5 = 4"}</M> s.
+        </p>
+        <p>
+          <strong>Solve.</strong> Feed that time into the position formula:{" "}
+          <M>{"x = v_0 t + \\tfrac12 a t^2 = 20(4) - \\tfrac12 (5)(4^2) = 80 - 40 = 40"}</M> m.
+        </p>
+        <p>
+          <strong>Check.</strong> While braking, speed falls steadily from 20 to 0, so the{" "}
+          <em>average</em> speed is 10 m/s, held for 4 s — also 40 m. ✓ You can replay this in
+          the widget at quarter scale: set <M>{"v_0 = 5"}</M>, <M>{"a = -1.25"}</M> and watch the
+          bead stop at 10 m.
+        </p>
+      </Worked>
 
       <KeyIdea>
         The state of a moving particle is position together with velocity. Acceleration is the rule
@@ -111,6 +157,14 @@ export default function Foundations() {
         {"x(t)=x_0+v_0\\cos\\theta\\,t, \\qquad y(t)=y_0+v_0\\sin\\theta\\,t-\\tfrac{1}{2}g\\,t^2"}
       </Eq>
 
+      <p>
+        <strong>Try this:</strong> keep the speed fixed and sweep the angle from 20° up to 70°.
+        The range grows, peaks near 45°, then shrinks again — while the flight time only keeps
+        growing. Then pause a flight mid-air and study the two arrows on the ball: the{" "}
+        <span className="cx">red</span> horizontal one is identical at every instant of the
+        flight; only the <span className="cy">green</span> vertical one changes.
+      </p>
+
       <ProjectileLauncher />
 
       <Aside>
@@ -118,6 +172,28 @@ export default function Foundations() {
         the peak, then grows downward. That is the independence of the two axes made visible — the
         single most useful idea in introductory kinematics.
       </Aside>
+
+      <Worked title="A drone drops a parcel">
+        <p>
+          <strong>Given.</strong> A delivery drone flies level at 12 m/s, 20 m above the ground.
+          How far <em>before</em> the target must it release the parcel?
+        </p>
+        <p>
+          <strong>Set up.</strong> At release the parcel has the drone's velocity: 12 m/s
+          horizontal, 0 vertical. The two axes separate. Vertical alone decides the fall time:{" "}
+          <M>{"20 = \\tfrac12 g t^2"}</M>.
+        </p>
+        <p>
+          <strong>Solve.</strong> <M>{"t = \\sqrt{2(20)/9.81} \\approx 2.02"}</M> s. In that time
+          the parcel coasts horizontally <M>{"x = 12 \\times 2.02 \\approx 24"}</M> m. Release 24
+          m early.
+        </p>
+        <p>
+          <strong>Check.</strong> Notice the horizontal speed never entered the fall-time
+          calculation — a parcel <em>dropped</em> from a hovering drone at 20 m takes the same
+          2.02 s to land. That is axis independence doing real work.
+        </p>
+      </Worked>
 
       <H2>Velocity depends on the frame</H2>
       <p>
@@ -137,6 +213,29 @@ export default function Foundations() {
 
       <RiverCrossing />
 
+      <Worked title="Aiming the ferry">
+        <p>
+          <strong>Given.</strong> The widget's defaults: current <M>{"u = 1.6"}</M> m/s, boat
+          speed <M>{"v_b = 3.2"}</M> m/s relative to the water. What heading reaches the dock
+          straight across?
+        </p>
+        <p>
+          <strong>Set up.</strong> The upstream part of the boat's velocity must exactly cancel
+          the current: <M>{"v_b \\sin\\phi = u"}</M>.
+        </p>
+        <p>
+          <strong>Solve.</strong>{" "}
+          <M>{"\\phi = \\arcsin(1.6/3.2) = \\arcsin(0.5) = 30°"}</M> upstream. The speed actually
+          made good across the river is <M>{"v_b\\cos 30° \\approx 2.77"}</M> m/s, so the 10 m
+          crossing takes about 3.6 s.
+        </p>
+        <p>
+          <strong>Check.</strong> Dial heading to 30° in the widget and press <em>cross</em> —
+          the drift readout should sit at 0.00 m. And note the cost of the current: the crossing
+          is slower than the 3.1 s a still-water crossing would take.
+        </p>
+      </Worked>
+
       <Aside>
         This is the first and most important robotics bridge in the course. Every robot lives in nested
         frames — world, base, link, end-effector, sensor — and the rule for changing frames is exactly
@@ -145,8 +244,74 @@ export default function Foundations() {
         <M>{"SE(3)"}</M>, but the question never changes: <em>relative to which frame?</em>
       </Aside>
 
+      <Quiz
+        challengeId="phys1-quiz"
+        goal="Answer all three correctly."
+        questions={[
+          {
+            prompt: (
+              <>
+                A ball is thrown straight up. At the very top of its flight, what are its
+                velocity and acceleration?
+              </>
+            ),
+            options: [
+              { label: "v = 0, a = 9.8 m/s² downward", correct: true },
+              { label: "v = 0, a = 0" },
+              { label: "both are zero for an instant" },
+              { label: "v = 9.8 m/s down, a = 0" },
+            ],
+            explain:
+              "The turning point is where velocity passes through zero — but gravity never pauses. If a were zero there, the ball would stay put.",
+          },
+          {
+            prompt: (
+              <>
+                One bullet is fired horizontally; an identical one is dropped from the same
+                height at the same moment. Ignoring air resistance, which hits the ground first?
+              </>
+            ),
+            options: [
+              { label: "They land at the same time", correct: true },
+              { label: "The dropped one" },
+              { label: "The fired one" },
+              { label: "It depends on the bullet's speed" },
+            ],
+            explain:
+              "Vertical motion is independent of horizontal motion. Both start with zero vertical velocity and fall under the same g.",
+          },
+          {
+            prompt: (
+              <>
+                You walk toward the front of a train at 1 m/s while the train moves at 30 m/s.
+                Your velocity relative to the ground is…
+              </>
+            ),
+            options: [
+              { label: "31 m/s", correct: true },
+              { label: "30 m/s" },
+              { label: "1 m/s" },
+              { label: "29 m/s" },
+            ],
+            explain:
+              "Velocities in nested frames add: you-relative-to-train plus train-relative-to-ground.",
+          },
+        ]}
+      />
+
+      <H2>Where you'll use this in Modern Robotics</H2>
+      <p>
+        The rotating arrow of the first widget <em>is</em> a rotation matrix in embryo: in
+        Chapter 3 the columns of <M>{"R"}</M> are exactly the shadows that a turned frame's axes
+        cast on the fixed one. The bead's position/velocity pair returns as the state{" "}
+        <M>{"(\\theta, \\dot\\theta)"}</M> of every joint in Chapters 8–11. And the river
+        crossing is the whole of Chapters 3–5 in miniature: a robot lives in nested frames —
+        world, base, link, camera — and every velocity must be tagged with the frame it is
+        measured in before you are allowed to add it to anything.
+      </p>
+
       <BookRef>
-        Supplemental physics track · Module 1: vectors and frames, constant-acceleration kinematics,
+        Physics track · Module 1 of 10: vectors and frames, constant-acceleration kinematics,
         projectile motion, and relative motion. Bridges forward to Modern Robotics §3 (rigid-body
         motions) and §5 (velocity kinematics).
       </BookRef>
@@ -164,8 +329,9 @@ function VectorScope() {
   const H = 360;
   const O: [number, number] = [200, 180];
   const SCALE = 26; // px per unit
+  const START: [number, number] = [O[0] + 4.4 * SCALE, O[1] - 1.6 * SCALE]; // NOT (3,4): the challenge must be earned
   const svgRef = useRef<SVGSVGElement>(null);
-  const [tip, setTip] = useState<[number, number]>([O[0] + 3 * SCALE, O[1] - 4 * SCALE]);
+  const [tip, setTip] = useState<[number, number]>(START);
   const [spinning, setSpinning] = useState(false);
   const [dragging, setDragging] = useState(false);
   const histRef = useRef<{ t: number; vx: number; vy: number }[]>([]);
@@ -177,24 +343,31 @@ function VectorScope() {
   const mag = Math.hypot(vx, vy);
   const theta = Math.atan2(vy, vx);
 
-  useRaf(spinning, dt => {
-    const w = 0.9; // rad/s
-    setTip(([tx, ty]) => {
-      const dx = tx - O[0];
-      const dy = ty - O[1];
-      const c = Math.cos(w * dt);
-      const s = Math.sin(w * dt);
-      // rotate counter-clockwise in screen space (y is down, so negate)
-      const nx = O[0] + dx * c + dy * s;
-      const ny = O[1] - dx * s + dy * c;
-      const nvx = (nx - O[0]) / SCALE;
-      const nvy = (O[1] - ny) / SCALE;
-      tRef.current += dt;
-      const h = histRef.current;
-      h.push({ t: tRef.current, vx: nvx, vy: nvy });
-      if (h.length > 700) h.shift();
-      return [nx, ny];
-    });
+  const push = (t: number, pvx: number, pvy: number) => {
+    const h = histRef.current;
+    h.push({ t, vx: pvx, vy: pvy });
+    if (h.length > 700) h.shift();
+  };
+
+  // the strip chart traces while spinning AND while dragging — it is never dead
+  useRaf(spinning || dragging, dt => {
+    tRef.current += dt;
+    if (spinning) {
+      const w = 0.9; // rad/s
+      setTip(([tx, ty]) => {
+        const dx = tx - O[0];
+        const dy = ty - O[1];
+        const c = Math.cos(w * dt);
+        const s = Math.sin(w * dt);
+        // rotate counter-clockwise in screen space (y is down, so negate)
+        const nx = O[0] + dx * c + dy * s;
+        const ny = O[1] - dx * s + dy * c;
+        push(tRef.current, (nx - O[0]) / SCALE, (O[1] - ny) / SCALE);
+        return [nx, ny];
+      });
+    } else {
+      push(tRef.current, vx, vy);
+    }
     force(n => n + 1);
   });
 
@@ -208,7 +381,7 @@ function VectorScope() {
     setSpinning(false);
     histRef.current = [];
     tRef.current = 0;
-    setTip([O[0] + 3 * SCALE, O[1] - 4 * SCALE]);
+    setTip(START);
   }
 
   // right-hand scrolling plot of the two components
@@ -247,8 +420,29 @@ function VectorScope() {
           <ArrowDefs />
           {/* scope grid */}
           <Grid width={420} height={H} origin={O} step={SCALE} />
+          {/* axis numbers */}
+          {[-4, -2, 2, 4].map(u => (
+            <g key={u} className="ui">
+              <text x={O[0] + u * SCALE} y={O[1] + 15} textAnchor="middle" className="fill-[var(--ink-faint)] text-[9.5px]">{u}</text>
+              <text x={O[0] - 7} y={O[1] - u * SCALE + 3.5} textAnchor="end" className="fill-[var(--ink-faint)] text-[9.5px]">{u}</text>
+            </g>
+          ))}
           {/* magnitude circle preserved while spinning */}
           <circle cx={O[0]} cy={O[1]} r={mag * SCALE} fill="none" stroke="#d9d5ca" strokeWidth={1.2} strokeDasharray="3 5" />
+          {/* angle arc at the origin */}
+          {mag > 0.6 && Math.abs(theta) > 0.06 && (
+            <g>
+              <path
+                d={`M ${O[0] + 27} ${O[1]} A 27 27 0 0 ${theta >= 0 ? 0 : 1} ${(O[0] + 27 * Math.cos(theta)).toFixed(1)} ${(O[1] - 27 * Math.sin(theta)).toFixed(1)}`}
+                fill="none" stroke={V_COLOR} strokeWidth={1.6} opacity={0.65}
+              />
+              <text
+                x={O[0] + 43 * Math.cos(theta / 2)}
+                y={O[1] - 43 * Math.sin(theta / 2) + 4}
+                textAnchor="middle" className="ui text-[11px]" fill={V_COLOR}
+              >θ</text>
+            </g>
+          )}
           {/* component shadows */}
           <line x1={O[0]} y1={O[1]} x2={tip[0]} y2={O[1]} stroke={X_COLOR} strokeWidth={4} markerEnd="url(#fd-arrow-x)" />
           <line x1={tip[0]} y1={O[1]} x2={tip[0]} y2={tip[1]} stroke={Y_COLOR} strokeWidth={4} markerEnd="url(#fd-arrow-y)" />
@@ -281,19 +475,33 @@ function VectorScope() {
           <line x1={plotX} y1={plotMid + mag * vScale} x2={plotX + plotW} y2={plotMid + mag * vScale} stroke="#9e9e9e" strokeWidth={1} strokeDasharray="3 4" opacity={0.7} />
           <text x={plotX + plotW - 3} y={plotMid - mag * vScale - 4} textAnchor="end" className="ui fill-[var(--ink-faint)] text-[10px]">A = {mag.toFixed(2)}</text>
           <text x={plotX + plotW - 3} y={36} textAnchor="end" className="ui text-[11px]" fill={V_COLOR}>θ = {deg(theta).toFixed(0)}°</text>
+          {/* legend */}
+          <g className="ui">
+            <rect x={plotX} y={28} width={9} height={9} rx={2} fill={X_COLOR} />
+            <text x={plotX + 14} y={36} className="text-[11px]" fill="var(--ink-soft)">x = |r| cos θ</text>
+            <rect x={plotX + 106} y={28} width={9} height={9} rx={2} fill={Y_COLOR} />
+            <text x={plotX + 120} y={36} className="text-[11px]" fill="var(--ink-soft)">y = |r| sin θ</text>
+          </g>
           {hist.length > 1 && (
             <>
               <path d={buildPath("vx")} fill="none" stroke={X_COLOR} strokeWidth={2.4} />
               <path d={buildPath("vy")} fill="none" stroke={Y_COLOR} strokeWidth={2.4} />
+              {/* live level dots at the right edge tie chart to arrow */}
+              <circle cx={plotX + plotW} cy={plotMid - vx * vScale} r={4} fill={X_COLOR} />
+              <circle cx={plotX + plotW} cy={plotMid - vy * vScale} r={4} fill={Y_COLOR} />
             </>
           )}
           {hist.length <= 1 && (
-            <text x={plotX + plotW / 2} y={plotMid} textAnchor="middle" className="ui fill-[var(--ink-faint)] text-[12px]">
-              press spin to trace the components
+            <text x={plotX + plotW / 2} y={plotMid - 14} textAnchor="middle" className="ui fill-[var(--ink-faint)] text-[12px]">
+              drag the tip or press spin —
             </text>
           )}
-          <text x={plotX} y={24} className="ui fill-[var(--ink-faint)] text-[11px]">x-component (cos)</text>
-          <text x={plotX} y={H - 10} className="ui fill-[var(--ink-faint)] text-[11px]">y-component (sin) · time →</text>
+          {hist.length <= 1 && (
+            <text x={plotX + plotW / 2} y={plotMid + 6} textAnchor="middle" className="ui fill-[var(--ink-faint)] text-[12px]">
+              x and y trace themselves here
+            </text>
+          )}
+          <text x={plotX + plotW - 3} y={H - 10} textAnchor="end" className="ui fill-[var(--ink-faint)] text-[11px]">time →</text>
         </svg>
         <ControlBar>
           <PlayButton running={spinning} onClick={() => setSpinning(s => !s)} labels={["spin", "stop"]} />
@@ -372,13 +580,24 @@ function KinematicsTrack() {
 
   const tStop = Math.abs(a) > 1e-6 ? -v0 / a : Infinity;
   const turningVisible = Math.abs(a) > 0.08 && tStop > 0.5 && tStop < tMax - 0.5;
+  // the challenge is earned by carrying the bead THROUGH the turning point, not by page defaults
+  const turnReached = turningVisible && t >= tStop - 0.02;
+
+  // shaded area under v(t) from 0 to the playhead = distance covered so far
+  const areaSamples = samples.filter(s => s.t <= t);
+  const areaPath =
+    areaSamples.length > 1
+      ? `M ${tToX(0).toFixed(1)} ${vToScreen(0).toFixed(1)} ` +
+        areaSamples.map(s => `L ${tToX(s.t).toFixed(1)} ${vToScreen(s.v).toFixed(1)}`).join(" ") +
+        ` L ${tToX(areaSamples[areaSamples.length - 1].t).toFixed(1)} ${vToScreen(0).toFixed(1)} Z`
+      : "";
 
   return (
     <>
       <WidgetShell
         title="Position, velocity, and the turning point"
         onReset={() => { setX0(0); setV0(3.4); setA(-1.1); setT(0); setRunning(false); }}
-        caption="Top: the bead on its track, its blue arrow is the live velocity. Middle: position x(t). Bottom: velocity v(t). The playhead ties all three together — watch the velocity hit zero exactly when the bead reverses."
+        caption="Top: the bead on its track — blue arrow is the live velocity, orange is the fixed acceleration. Middle: position x(t). Bottom: velocity v(t); the shaded area under it is the distance covered so far. The gold dashed line is the turning point, where v crosses zero and the bead reverses."
       >
         <svg viewBox={`0 0 ${W} ${H}`} className="block w-full rounded-lg bg-[#fbfaf7]">
           {/* track */}
@@ -402,6 +621,20 @@ function KinematicsTrack() {
           {turningVisible && (
             <line x1={trackPos(xOf(tStop))} y1={trackY - 14} x2={trackPos(xOf(tStop))} y2={trackY + 14} stroke={GOLD} strokeWidth={2} strokeDasharray="3 3" />
           )}
+          {/* acceleration arrow above the bead — constant, unlike the velocity */}
+          {Math.abs(a) > 0.05 && (
+            <>
+              <line
+                x1={beadX} y1={trackY - 22}
+                x2={beadX + clamp(a * 30, -80, 80)} y2={trackY - 22}
+                stroke={A_COLOR} strokeWidth={3} markerEnd="url(#fd-arrow-a)"
+              />
+              <text
+                x={beadX + clamp(a * 30, -80, 80) + (a > 0 ? 8 : -8)} y={trackY - 18}
+                textAnchor={a > 0 ? "start" : "end"} className="ui text-[10.5px]" fill={A_COLOR}
+              >a</text>
+            </>
+          )}
           {/* velocity arrow on bead */}
           <line
             x1={beadX}
@@ -421,16 +654,40 @@ function KinematicsTrack() {
             <line x1={trackX0} y1={xToScreen(0)} x2={trackX1} y2={xToScreen(0)} stroke="#e4e1d8" />
           )}
           <path d={xPath} fill="none" stroke={V_COLOR} strokeWidth={3.5} />
-          <circle cx={playX} cy={xToScreen(curX)} r={6} fill={V_COLOR} stroke="#fff" strokeWidth={2} />
 
           {/* v(t) plot */}
           <PlotFrame x0={trackX0} y0={vPlotY} w={trackX1 - trackX0} h={vPlotH} label="velocity v(t)" />
+          {areaPath && <path d={areaPath} fill={BLUE} opacity={0.13} stroke="none" />}
           <line x1={trackX0} y1={vToScreen(0)} x2={trackX1} y2={vToScreen(0)} stroke="#cfcabc" strokeWidth={1.2} />
           <path d={vPath} fill="none" stroke={BLUE} strokeWidth={3.5} />
-          <circle cx={playX} cy={vToScreen(curV)} r={6} fill={BLUE} stroke="#fff" strokeWidth={2} />
 
-          {/* shared playhead */}
+          {/* time axis ticks under the v(t) plot */}
+          {Array.from({ length: tMax + 1 }, (_, i) => i).map(ti => (
+            <g key={ti}>
+              <line x1={tToX(ti)} y1={vPlotY + vPlotH} x2={tToX(ti)} y2={vPlotY + vPlotH + 5} stroke="#b6b2a4" />
+              <text x={tToX(ti)} y={vPlotY + vPlotH + 17} textAnchor="middle" className="ui fill-[var(--ink-faint)] text-[10px]">{ti}</text>
+            </g>
+          ))}
+          <text x={trackX1 + 8} y={vPlotY + vPlotH + 17} className="ui fill-[var(--ink-faint)] text-[10px]">s</text>
+
+          {/* turning point marked on the graphs themselves */}
+          {turningVisible && (
+            <>
+              <line x1={tToX(tStop)} y1={xPlotY} x2={tToX(tStop)} y2={vPlotY + vPlotH} stroke={GOLD} strokeWidth={1.6} strokeDasharray="4 4" />
+              <circle cx={tToX(tStop)} cy={xToScreen(xOf(tStop))} r={4.5} fill={GOLD} stroke="#fff" strokeWidth={1.5} />
+              <circle cx={tToX(tStop)} cy={vToScreen(0)} r={4.5} fill={GOLD} stroke="#fff" strokeWidth={1.5} />
+              <text
+                x={tToX(tStop) + (tStop < tMax * 0.7 ? 7 : -7)} y={vPlotY + 14}
+                textAnchor={tStop < tMax * 0.7 ? "start" : "end"}
+                className="ui text-[10.5px]" fill="#8a6d12"
+              >v = 0 here</text>
+            </>
+          )}
+
+          {/* shared playhead + live dots drawn above everything */}
           <line x1={playX} y1={xPlotY} x2={playX} y2={vPlotY + vPlotH} stroke={A_COLOR} strokeWidth={1.8} strokeDasharray="5 4" opacity={0.7} />
+          <circle cx={playX} cy={xToScreen(curX)} r={6} fill={V_COLOR} stroke="#fff" strokeWidth={2} />
+          <circle cx={playX} cy={vToScreen(curV)} r={6} fill={BLUE} stroke="#fff" strokeWidth={2} />
         </svg>
         <ControlBar>
           <PlayButton running={running} onClick={() => setRunning(r => !r)} />
@@ -442,10 +699,11 @@ function KinematicsTrack() {
           <Readout label="v(t)" value={`${curV.toFixed(2)} m/s`} color={BLUE} />
         </ControlBar>
       </WidgetShell>
-      <Challenge id="phys1-motion-stop" met={turningVisible}>
-        Tune <M>{"v_0"}</M> and <M>{"a"}</M> so the bead clearly stops and reverses on the track —
-        the gold tick marks the turning point. You are arranging for{" "}
-        <M>{"v(t)=v_0+at"}</M> to cross zero in view, at <M>{"t = -v_0/a"}</M>.
+      <Challenge id="phys1-motion-stop" met={turnReached}>
+        Press play (or drag the <M>{"t"}</M> slider) and carry the bead <em>through</em> its
+        turning point — the gold line marks where <M>{"v(t)=v_0+at"}</M> crosses zero, at{" "}
+        <M>{"t=-v_0/a"}</M>. Watch closely: the bead pauses for exactly one instant as the
+        velocity curve touches the axis.
       </Challenge>
     </>
   );
@@ -500,6 +758,13 @@ function ProjectileLauncher() {
   const flown = Array.from({ length: 61 }, (_, i) => (i / 60) * t).map(ti => [sx(vx * ti), sy(height + vy0 * ti - 0.5 * g * ti * ti)]);
   const trailPath = flown.map((p, i) => `${i === 0 ? "M" : "L"} ${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(" ");
 
+  // strobe dots every 0.3 s — equal horizontal spacing proves vx never changes
+  const strobe: [number, number][] = [];
+  for (let ti = 0.3; ti < t; ti += 0.3) strobe.push([sx(vx * ti), sy(height + vy0 * ti - 0.5 * g * ti * ti)]);
+
+  const tPeak = vy0 > 0 ? vy0 / g : 0;
+  const xPeak = vx * tPeak;
+
   const px = vx * t;
   const py = height + vy0 * t - 0.5 * g * t * t;
   const vyNow = vy0 - g * t;
@@ -519,12 +784,21 @@ function ProjectileLauncher() {
       <WidgetShell
         title="Projectile launcher"
         onReset={() => { setSpeed(22); setAngle(52); setHeight(1.5); setT(0); setRunning(false); }}
-        caption="The faint arc is the predicted path; press launch to fly it in real time. Red is the unchanging horizontal velocity, green is the vertical velocity that gravity rewrites every instant."
+        caption="The faint arc is the predicted path; press launch to fly it in real time. Red is the unchanging horizontal velocity, green is the vertical velocity that gravity rewrites every instant. The trail dots are stamped at equal time steps — their equal horizontal spacing is visible proof that vₓ never changes."
       >
         <svg viewBox={`0 0 ${W} ${H}`} className="block w-full rounded-lg bg-[#fbfaf7]">
           <ArrowDefs />
           {/* ground */}
           <line x1={40} y1={origin[1]} x2={730} y2={origin[1]} stroke="#8a8a9b" strokeWidth={1.5} />
+          {/* distance scale on the ground */}
+          {Array.from({ length: 8 }, (_, i) => (i + 1) * 10)
+            .filter(d => sx(d) < 726)
+            .map(d => (
+              <g key={d}>
+                <line x1={sx(d)} y1={origin[1]} x2={sx(d)} y2={origin[1] + 6} stroke="#a8a496" strokeWidth={1.2} />
+                <text x={sx(d)} y={origin[1] + 19} textAnchor="middle" className="ui fill-[var(--ink-faint)] text-[10px]">{d} m</text>
+              </g>
+            ))}
           {/* launch platform */}
           {height > 0.05 && <rect x={origin[0] - 14} y={sy(height)} width={16} height={height * scale} fill="#d7d2c4" />}
           {/* target zone */}
@@ -532,12 +806,26 @@ function ProjectileLauncher() {
           <text x={sx((tgt0 + tgt1) / 2)} y={origin[1] - 38} textAnchor="middle" className="ui fill-[var(--good)] text-[11px] font-semibold">target</text>
           {/* predicted arc */}
           <path d={ghostPath} fill="none" stroke="#bdb7a6" strokeWidth={1.6} strokeDasharray="4 5" />
-          {/* flown trail */}
+          {/* peak marker */}
+          {vy0 > 0 && (
+            <>
+              <line x1={sx(xPeak)} y1={sy(peak)} x2={sx(xPeak)} y2={origin[1]} stroke={GOLD} strokeWidth={1.2} strokeDasharray="3 4" opacity={0.8} />
+              <circle cx={sx(xPeak)} cy={sy(peak)} r={3.5} fill={GOLD} />
+              <text x={sx(xPeak)} y={sy(peak) - 9} textAnchor="middle" className="ui text-[10.5px]" fill="#8a6d12">
+                peak {peak.toFixed(1)} m
+              </text>
+            </>
+          )}
+          {/* flown trail + equal-time strobe dots */}
           {t > 0 && <path d={trailPath} fill="none" stroke={V_COLOR} strokeWidth={3.5} />}
+          {strobe.map((p, i) => (
+            <circle key={i} cx={p[0]} cy={p[1]} r={2.8} fill={V_COLOR} opacity={0.55} />
+          ))}
           {/* ball + velocity decomposition */}
           <circle cx={sx(px)} cy={sy(py)} r={8} fill={A_COLOR} stroke="#fff" strokeWidth={2.5} />
-          <line x1={sx(px)} y1={sy(py)} x2={sx(px) + vx * 0.5 * scale * 0.5} y2={sy(py)} stroke={X_COLOR} strokeWidth={3.5} markerEnd="url(#fd-arrow-x)" />
-          <line x1={sx(px)} y1={sy(py)} x2={sx(px)} y2={sy(py) - vyNow * 0.5 * scale * 0.5} stroke={Y_COLOR} strokeWidth={3.5} markerEnd="url(#fd-arrow-y)" />
+          <line x1={sx(px)} y1={sy(py)} x2={sx(px) + vx * 0.25 * scale} y2={sy(py) - vyNow * 0.25 * scale} stroke={V_COLOR} strokeWidth={2.5} opacity={0.75} markerEnd="url(#fd-arrow-v)" />
+          <line x1={sx(px)} y1={sy(py)} x2={sx(px) + vx * 0.25 * scale} y2={sy(py)} stroke={X_COLOR} strokeWidth={3.5} markerEnd="url(#fd-arrow-x)" />
+          <line x1={sx(px)} y1={sy(py)} x2={sx(px)} y2={sy(py) - vyNow * 0.25 * scale} stroke={Y_COLOR} strokeWidth={3.5} markerEnd="url(#fd-arrow-y)" />
           <text x={64} y={36} className="ui fill-[var(--ink-soft)] text-[12.5px]">vₓ constant · v_y bends under gravity</text>
         </svg>
         <ControlBar>
@@ -545,6 +833,7 @@ function ProjectileLauncher() {
           <LabeledSlider label="speed" value={speed} min={8} max={34} step={0.2} onChange={setSpeed} fmt={v => `${v.toFixed(1)} m/s`} width={170} />
           <LabeledSlider label="angle" value={angle} min={8} max={80} step={1} onChange={setAngle} fmt={v => `${v.toFixed(0)}°`} />
           <LabeledSlider label="height" value={height} min={0} max={8} step={0.1} onChange={setHeight} fmt={v => `${v.toFixed(1)} m`} />
+          <Readout label="t" value={`${t.toFixed(2)} s`} color={A_COLOR} />
           <Readout label="range" value={`${range.toFixed(1)} m`} />
           <Readout label="peak" value={`${peak.toFixed(1)} m`} />
           <Readout label="flight" value={`${flightTime.toFixed(2)} s`} />
@@ -601,18 +890,20 @@ function RiverCrossing() {
 
   const Y = Math.min(vAcross * ts, D);
   const X = vGroundX * ts;
-  const driftFinal = vGroundX * crossTime; // where it lands at far bank
+  const driftFinal = Number.isFinite(crossTime) ? vGroundX * crossTime : NaN; // where it lands at far bank
 
   // heading direction (where the bow points), for the boat glyph + still-water ghost
   const headDir = Math.atan2(vAcross, -vb * Math.sin(phi)); // screen-ish angle of water-relative velocity
   const groundAng = Math.atan2(vAcross, vGroundX);
 
   const landed = vAcross > 1e-3 && Y >= D - 1e-3;
-  const dockMet = vb > u + 0.05 && Math.abs(driftFinal) < 0.3;
+  const aimedAtDock = Number.isFinite(driftFinal) && Math.abs(driftFinal) < 0.3;
+  // the checkmark requires actually making the crossing, not just dialing the sliders
+  const dockMet = landed && Math.abs(X) < 0.3;
 
-  // velocity triangle inset (top-right)
-  const triO: [number, number] = [600, 90];
-  const triScale = 14;
+  // velocity triangle inset, in its own card at bottom-right of the water
+  const triO: [number, number] = [654, 292];
+  const triScale = 11;
 
   function launch() {
     if (running) { setRunning(false); return; }
@@ -625,20 +916,21 @@ function RiverCrossing() {
       <WidgetShell
         title="Crossing the river — velocity is relative to a frame"
         onReset={() => { setVb(3.2); setHeadingDeg(0); setU(1.6); setTs(0); setRunning(false); }}
-        caption="The boat moves at its set speed relative to the water; the current adds on top. Solid purple is the path over the ground; the dashed grey line is where the bow points. Aim upstream to cancel the drift and reach the dock."
+        caption="The boat moves at its set speed relative to the water; the current adds on top. Solid purple is the path over the ground; the dashed grey arrow is where the bow points. The × on the far bank predicts your landing spot and updates live as you aim — put it on the dock, then press cross."
       >
         <svg viewBox={`0 0 ${W} ${H}`} className="block w-full rounded-lg bg-[#eef4f7]">
           <ArrowDefs />
           {/* banks */}
           <rect x={0} y={farY - 28} width={W} height={28} fill="#cdbfa3" />
           <rect x={0} y={nearY} width={W} height={H - nearY} fill="#cdbfa3" />
-          {/* current arrows */}
+          {/* current arrows — they drift downstream while the boat crosses */}
           {Array.from({ length: 6 }, (_, i) => {
             const yy = farY + 36 + i * ((nearY - farY - 60) / 5);
             const len = clamp(u * 16, 6, 70);
+            const xoff = ((ts * u * pxPerM) % 56) * (i % 2 === 0 ? 1 : 0.6);
             return (
               <g key={i} opacity={0.5}>
-                <line x1={90} y1={yy} x2={90 + len} y2={yy} stroke={BLUE} strokeWidth={2} markerEnd="url(#fd-arrow-b)" />
+                <line x1={90 + xoff} y1={yy} x2={90 + xoff + len} y2={yy} stroke={BLUE} strokeWidth={2} markerEnd="url(#fd-arrow-b)" />
               </g>
             );
           })}
@@ -646,18 +938,34 @@ function RiverCrossing() {
 
           {/* dock target on far bank */}
           <line x1={cx} y1={nearY} x2={cx} y2={farY} stroke="#ffffff" strokeWidth={1} strokeDasharray="2 8" opacity={0.6} />
-          <rect x={cx - 16} y={farY - 12} width={32} height={12} fill={GOLD} opacity={dockMet ? 0.95 : 0.55} />
+          <rect x={cx - 16} y={farY - 12} width={32} height={12} fill={GOLD} opacity={aimedAtDock ? 0.95 : 0.55} />
           <text x={cx} y={farY - 16} textAnchor="middle" className="ui fill-[#8a6d12] text-[11px] font-semibold">dock</text>
+
+          {/* predicted ground path + landing marker — updates live with the sliders */}
+          {Number.isFinite(driftFinal) && (
+            <>
+              <line
+                x1={wx(X)} y1={wy(Y)}
+                x2={clamp(wx(driftFinal), 24, 736)} y2={wy(D)}
+                stroke={V_COLOR} strokeWidth={1.6} strokeDasharray="4 5" opacity={0.45}
+              />
+              <g transform={`translate(${clamp(wx(driftFinal), 24, 736)}, ${farY})`}>
+                <line x1={-5} y1={-5} x2={5} y2={5} stroke={aimedAtDock ? "#2f9e44" : "#c2571c"} strokeWidth={2.5} />
+                <line x1={-5} y1={5} x2={5} y2={-5} stroke={aimedAtDock ? "#2f9e44" : "#c2571c"} strokeWidth={2.5} />
+              </g>
+              {!landed && (
+                <text
+                  x={clamp(wx(driftFinal), 40, 720)} y={farY + 16}
+                  textAnchor="middle" className="ui text-[10px]"
+                  fill={aimedAtDock ? "#2f9e44" : "#c2571c"}
+                >lands here</text>
+              )}
+            </>
+          )}
 
           {/* ground track */}
           {ts > 0 && <line x1={wx(0)} y1={wy(0)} x2={wx(X)} y2={wy(Y)} stroke={V_COLOR} strokeWidth={3} />}
           {/* still-water heading ghost (where bow points) */}
-          <line
-            x1={wx(0)} y1={wy(0)}
-            x2={wx(0) + Math.cos(headDir + 0) * 0}
-            y2={wy(0)}
-            stroke="none"
-          />
           <line
             x1={wx(X)} y1={wy(Y)}
             x2={wx(X) - vb * Math.sin(phi) * pxPerM * 0.9}
@@ -679,15 +987,10 @@ function RiverCrossing() {
             />
           )}
 
-          {/* velocity triangle inset */}
+          {/* velocity triangle in its own card, clear of the banks */}
           <g>
-            {/* title floated above the highest vertex */}
-            <text
-              x={triO[0] + vGroundX * triScale / 2}
-              y={Math.max(14, triO[1] - vAcross * triScale - 10)}
-              textAnchor="middle"
-              className="ui fill-[var(--ink-faint)] text-[10.5px]"
-            >velocity triangle</text>
+            <rect x={566} y={172} width={182} height={136} rx={9} fill="#ffffff" opacity={0.9} stroke="#d8d4c8" />
+            <text x={657} y={190} textAnchor="middle" className="ui fill-[var(--ink-faint)] text-[10.5px]">velocity triangle</text>
             {/* boat rel water (blue) */}
             <line x1={triO[0]} y1={triO[1]} x2={triO[0] - vb * Math.sin(phi) * triScale} y2={triO[1] - vAcross * triScale} stroke={BLUE} strokeWidth={2.5} markerEnd="url(#fd-arrow-b)" />
             <text
@@ -700,7 +1003,7 @@ function RiverCrossing() {
             <line x1={triO[0] - vb * Math.sin(phi) * triScale} y1={triO[1] - vAcross * triScale} x2={triO[0] - vb * Math.sin(phi) * triScale + u * triScale} y2={triO[1] - vAcross * triScale} stroke={X_COLOR} strokeWidth={2.5} markerEnd="url(#fd-arrow-x)" />
             <text
               x={triO[0] - vb * Math.sin(phi) * triScale + u * triScale / 2}
-              y={Math.max(12, triO[1] - vAcross * triScale - 7)}
+              y={triO[1] - vAcross * triScale - 7}
               textAnchor="middle"
               className="ui text-[9px]" fill={X_COLOR}
             >current</text>
@@ -725,13 +1028,14 @@ function RiverCrossing() {
           <LabeledSlider label="boat" value={vb} min={1} max={5} step={0.1} onChange={setVb} fmt={v => `${v.toFixed(1)} m/s`} color={BLUE} />
           <LabeledSlider label="heading" value={headingDeg} min={-60} max={60} step={1} onChange={setHeadingDeg} fmt={v => `${v.toFixed(0)}° up`} width={170} />
           <LabeledSlider label="current" value={u} min={0} max={4} step={0.1} onChange={setU} fmt={v => `${v.toFixed(1)} m/s`} color={X_COLOR} />
-          <Readout label="drift at bank" value={`${driftFinal.toFixed(2)} m`} color={V_COLOR} />
+          <Readout label="predicted drift" value={Number.isFinite(driftFinal) ? `${driftFinal.toFixed(2)} m` : "—"} color={V_COLOR} />
         </ControlBar>
       </WidgetShell>
       <Challenge id="phys1-relative-cross" met={dockMet}>
-        Reach the gold dock straight across. With the current pushing downstream, point the bow{" "}
-        <em>upstream</em> until the heading exactly cancels it: <M>{"v_b\\sin\\phi = u"}</M>, i.e.{" "}
-        <M>{"\\phi = \\arcsin(u/v_b)"}</M>. (You need <M>{"v_b > u"}</M> for any heading to work.)
+        Reach the gold dock straight across — aim, then <em>press cross</em> to prove it. Point
+        the bow <em>upstream</em> until the "lands here" marker sits on the dock: that is{" "}
+        <M>{"v_b\\sin\\phi = u"}</M>, i.e. <M>{"\\phi = \\arcsin(u/v_b)"}</M>. (You need{" "}
+        <M>{"v_b > u"}</M> for any heading to work.)
       </Challenge>
     </>
   );
@@ -778,6 +1082,7 @@ function ArrowDefs() {
       {m("fd-arrow-y", Y_COLOR)}
       {m("fd-arrow-v", V_COLOR)}
       {m("fd-arrow-b", BLUE)}
+      {m("fd-arrow-a", A_COLOR)}
       {m("fd-arrow-g", "#8a8576")}
     </defs>
   );

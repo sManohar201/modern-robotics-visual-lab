@@ -2,10 +2,11 @@ import { useMemo, useState } from "react";
 import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef } from "../../components/prose";
 import { WidgetShell, ControlBar, LabeledSlider, WidgetButton, Readout } from "../../components/widgets/WidgetShell";
 import { Challenge } from "../../components/widgets/Challenge";
+import { Quiz } from "../../components/widgets/Quiz";
 import { Scene3D, Triad } from "../../components/three/Scene3D";
 import { type Vec3, deg } from "../../lib/math/vec";
 import { Joint, Poly, Leg } from "./viz";
-import { RPR_A, rprPlatformPt, rprForward } from "./mechanism";
+import { RPR_A, RPR_B, rprPlatformPt, rprForward, circInt, type V2 } from "./mechanism";
 
 const GHOST: [string, string, string] = ["#dcb6b4", "#b8d4bd", "#b4c4dd"];
 const BASEc = "#9b968a";
@@ -33,18 +34,48 @@ export default function ForwardAssemblies() {
         coupled quadratic constraints at once:
       </p>
       <Eq>{"s_i^2 = \\big(p_x + b_{ix}\\cos\\phi - b_{iy}\\sin\\phi - a_{ix}\\big)^2 + \\big(p_y + b_{ix}\\sin\\phi + b_{iy}\\cos\\phi - a_{iy}\\big)^2,\\quad i=1,2,3."}</Eq>
+      <H2>Count the answers before any algebra</H2>
       <p>
-        The standard trick is the <strong>tangent half-angle substitution</strong>{" "}
-        <M>{"t=\\tan(\\phi/2)"}</M>, with <M>{"\\cos\\phi=\\tfrac{1-t^2}{1+t^2}"}</M> and{" "}
-        <M>{"\\sin\\phi=\\tfrac{2t}{1+t^2}"}</M>. After elimination the three equations collapse to a
-        single <strong>sixth-order polynomial</strong> in <M>{"t"}</M>:
+        You can see <em>why</em> there are several answers with no equations at all. Freeze legs 1
+        and 2 at their commanded lengths and ignore leg 3 for a moment. What is left is a four-bar
+        linkage, and it can still swing: as it does, the platform's third anchor point{" "}
+        <M>{"b_3"}</M> sweeps out a closed curve — its <strong>coupler curve</strong>, every point
+        the mechanism can put <M>{"b_3"}</M> while legs 1 and 2 keep their lengths. Now bring leg 3
+        back. Its demand is a circle: <M>{"b_3"}</M> must sit at distance <M>{"s_3"}</M> from the
+        base anchor <M>{"a_3"}</M>. So the forward-kinematics solutions are exactly the{" "}
+        <strong>intersections of a curve with a circle</strong> — and a wavy closed curve can cross
+        a circle two, four, or six times.
+      </p>
+      <p>
+        <strong>Try this:</strong> slide <M>{"s_3"}</M> slowly and watch the orange circle grow
+        through the teal curve — red intersection dots appear and vanish <em>in pairs</em>. Then
+        shrink <M>{"s_3"}</M> until the circle misses the curve entirely: zero intersections means
+        those three leg lengths cannot be assembled at all. Right at the moment a pair is born or
+        dies, the circle is tangent to the curve — hold that thought for the singularities page.
+      </p>
+
+      <CouplerCurveWidget />
+
+      <H2>The algebra agrees: one sixth-order polynomial</H2>
+      <p>
+        The picture promised "up to six"; the algebra delivers exactly that. The standard trick is
+        the <strong>tangent half-angle substitution</strong> <M>{"t=\\tan(\\phi/2)"}</M>, with{" "}
+        <M>{"\\cos\\phi=\\tfrac{1-t^2}{1+t^2}"}</M> and <M>{"\\sin\\phi=\\tfrac{2t}{1+t^2}"}</M>.
+        This turns the sines and cosines into plain fractions, and after eliminating{" "}
+        <M>{"p_x,p_y"}</M> the three loop equations collapse to a single{" "}
+        <strong>sixth-order polynomial</strong> in <M>{"t"}</M>:
       </p>
       <Eq>{"c_6 t^6 + c_5 t^5 + \\cdots + c_1 t + c_0 = 0."}</Eq>
       <p>
-        A degree-six polynomial can have up to six real roots, so the 3×RPR admits{" "}
-        <strong>up to six forward-kinematics solutions</strong> — six distinct platform poses, all
-        consistent with the very same leg lengths. Each is a different <em>assembly mode</em>. Set the
-        legs below and step through every pose the solver finds.
+        A degree-six polynomial can have up to six real roots — one for each time the coupler curve
+        crosses the circle. Each root is a different <em>assembly mode</em>: a distinct platform
+        pose, all consistent with the very same leg lengths.
+      </p>
+      <p>
+        <strong>Try this:</strong> in the 3-D view below, set the legs quite unequal and step
+        through the numbered poses with the buttons. Watch the faint ghost triangles: the mechanism
+        genuinely can be snapped together in each of those shapes, and its sliders cannot tell them
+        apart.
       </p>
 
       <AssemblyWidget />
@@ -63,8 +94,160 @@ export default function ForwardAssemblies() {
         that inverse kinematics never had.
       </KeyIdea>
 
+      <Quiz
+        challengeId="ch7-fk-quiz"
+        goal={<>Make the multiplicity story stick.</>}
+        questions={[
+          {
+            prompt: <>Why can one set of leg lengths correspond to several platform poses?</>,
+            options: [
+              { label: <>The loop equations are quadratic — geometrically, a curve can cross a circle several times</>, correct: true },
+              { label: <>Sensor noise makes the lengths ambiguous</> },
+              { label: <>It can't; the forward kinematics is unique like the inverse</> },
+            ],
+            explain: <>Squared distances are quadratics. Three coupled quadratics reduce to a degree-six polynomial, and each real root is an intersection of the coupler curve with leg 3's circle.</>,
+          },
+          {
+            prompt: <>As you lengthen <M>{"s_3"}</M>, assembly modes appear and disappear <em>in pairs</em>. Why?</>,
+            options: [
+              { label: <>Intersections of a circle and a closed curve are created or destroyed at tangencies, two at a time</>, correct: true },
+              { label: <>The solver only finds even numbers of solutions</> },
+              { label: <>Because the polynomial has even degree, it must have an even number of complex roots… so real ones come singly</> },
+            ],
+            explain: <>Push a circle through a closed curve: first it touches (tangency, one double solution), then it crosses (two). Real polynomial roots enter and leave through such double points.</>,
+          },
+          {
+            prompt: <>An "assembly mode" is best described as…</>,
+            options: [
+              { label: <>a distinct way the mechanism can be put together that produces the same actuator readings</>, correct: true },
+              { label: <>a failure state where the mechanism jams</> },
+              { label: <>the pose the controller chooses automatically</> },
+            ],
+            explain: <>The sliders read (s₁,s₂,s₃) identically in every mode — which is exactly why forward kinematics from joint readings alone is genuinely ambiguous.</>,
+          },
+        ]}
+      />
+
       <BookRef>Modern Robotics §7.1.1–7.1.2 — Forward kinematics of the 3×RPR (up to six solutions) and the Stewart–Gough platform (up to forty).</BookRef>
     </div>
+  );
+}
+
+/**
+ * Coupler-curve × circle intersection view: legs 1 & 2 frozen turn the 3×RPR
+ * into a four-bar whose third platform anchor b3 sweeps a closed curve; leg 3
+ * demands b3 lie on a circle. Forward-kinematics solutions = intersections.
+ */
+function CouplerCurveWidget() {
+  const [s1, setS1] = useState(1.0);
+  const [s2, setS2] = useState(2.0);
+  const [s3, setS3] = useState(2.8);
+
+  const sols = useMemo(() => rprForward([s1, s2, s3]), [s1, s2, s3]);
+  const n = sols.length;
+
+  const W = 620, H = 480;
+  const SC = 36;
+  const cx = W / 2, cy = H / 2 + 14;
+  const sx = (x: number) => cx + x * SC;
+  const sy = (y: number) => cy - y * SC;
+
+  const a1 = RPR_A[0], a2 = RPR_A[1], a3 = RPR_A[2];
+  const L12 = Math.hypot(RPR_B[1][0] - RPR_B[0][0], RPR_B[1][1] - RPR_B[0][1]);
+  const bodyAng = Math.atan2(RPR_B[1][1] - RPR_B[0][1], RPR_B[1][0] - RPR_B[0][0]);
+  const d31: V2 = [RPR_B[2][0] - RPR_B[0][0], RPR_B[2][1] - RPR_B[0][1]];
+
+  // b3's coupler curve, both circle-intersection branches of the frozen four-bar
+  const curvePaths = useMemo(() => {
+    const out: string[] = [];
+    for (const k of [0, 1]) {
+      let d = "";
+      let pen = false;
+      for (let i = 0; i <= 480; i++) {
+        const th = (i / 480) * 2 * Math.PI;
+        const b1: V2 = [a1[0] + s1 * Math.cos(th), a1[1] + s1 * Math.sin(th)];
+        const pts = circInt(a2, s2, b1, L12);
+        if (pts.length < 2) { pen = false; continue; }
+        const b2 = pts[k];
+        const del = Math.atan2(b2[1] - b1[1], b2[0] - b1[0]) - bodyAng;
+        const c = Math.cos(del), s = Math.sin(del);
+        const b3: V2 = [b1[0] + c * d31[0] - s * d31[1], b1[1] + s * d31[0] + c * d31[1]];
+        d += `${pen ? "L" : "M"} ${sx(b3[0]).toFixed(1)} ${sy(b3[1]).toFixed(1)} `;
+        pen = true;
+      }
+      out.push(d);
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s1, s2]);
+
+  // the actual FK solutions, marked at their b3 positions — the intersections
+  const solPts = sols.map(q => rprPlatformPt(q.px, q.py, q.phi, 2));
+
+  const met = n === 0;
+
+  return (
+    <>
+      <WidgetShell
+        title="The assembly-mode counter — curve meets circle"
+        onReset={() => { setS1(1.0); setS2(2.0); setS3(2.8); }}
+        caption={
+          <>
+            Teal: everywhere the platform anchor <M>{"b_3"}</M> can go while legs 1 and 2 hold
+            their lengths (the coupler curve, both folds of the frozen four-bar). Orange: leg 3's
+            demand, the circle <M>{"\\lVert b_3-a_3\\rVert = s_3"}</M>. Red dots: the intersections
+            — each one is a complete forward-kinematics solution.
+          </>
+        }
+      >
+        <div className="flex flex-col md:flex-row gap-4 items-center">
+          <svg viewBox={`0 0 ${W} ${H}`} className="block w-full max-w-[620px] rounded-lg bg-[#fbfaf7]">
+            {/* base triangle + anchors */}
+            <polygon
+              points={[a1, a2, a3].map(a => `${sx(a[0])},${sy(a[1])}`).join(" ")}
+              fill="none" stroke="#c9c4b6" strokeWidth={1.5} strokeDasharray="4 4"
+            />
+            {[a1, a2, a3].map((a, i) => (
+              <g key={i}>
+                <circle cx={sx(a[0])} cy={sy(a[1])} r={5.5} fill={BASEc} />
+                <text x={sx(a[0]) + 10} y={sy(a[1]) + 4} className="ui fill-[var(--ink-faint)] text-[12px]">a{i + 1}</text>
+              </g>
+            ))}
+            {/* leg-3 circle */}
+            <circle cx={sx(a3[0])} cy={sy(a3[1])} r={s3 * SC} fill="none" stroke="#c2571c" strokeWidth={2.2} strokeDasharray="7 5" />
+            {/* coupler curve (two folds) */}
+            {curvePaths.map((d, i) => (
+              <path key={i} d={d} fill="none" stroke="#0b7285" strokeWidth={2.4} opacity={i === 0 ? 0.9 : 0.55} />
+            ))}
+            {/* intersections = assembly modes */}
+            {solPts.map((p, i) => (
+              <circle key={i} cx={sx(p[0])} cy={sy(p[1])} r={6} fill="#d9483f" stroke="#fff" strokeWidth={2} />
+            ))}
+            {n === 0 && (
+              <text x={W / 2} y={34} textAnchor="middle" className="ui text-[13px] font-semibold" fill="#d9483f">
+                circle misses the curve — these leg lengths cannot assemble
+              </text>
+            )}
+          </svg>
+          <div className="ui flex flex-col justify-center gap-2.5 md:w-[210px]">
+            <Readout label="intersections = modes" value={String(n)} color={n === 0 ? "#d9483f" : n >= 4 ? "var(--good)" : undefined} />
+            <Readout label="s₃ circle radius" value={s3.toFixed(2)} color="#c2571c" />
+          </div>
+        </div>
+        <ControlBar>
+          <LabeledSlider label="s₁" value={s1} min={1.0} max={3.2} onChange={setS1} fmt={v => v.toFixed(2)} width={150} color={LEGc[0]} />
+          <LabeledSlider label="s₂" value={s2} min={1.0} max={3.2} onChange={setS2} fmt={v => v.toFixed(2)} width={150} color={LEGc[1]} />
+          <LabeledSlider label="s₃" value={s3} min={1.0} max={3.2} onChange={setS3} fmt={v => v.toFixed(2)} width={150} color={LEGc[2]} />
+        </ControlBar>
+      </WidgetShell>
+
+      <Challenge id="ch7-fk-vanish" met={met}>
+        Make the forward kinematics <strong>impossible</strong>: tune the lengths until the orange
+        circle misses the teal curve entirely and the mode count reads 0. On the way there, watch
+        the red dots die in pairs — each pair merges at a tangency, the geometric fingerprint of a
+        singularity.
+      </Challenge>
+    </>
   );
 }
 

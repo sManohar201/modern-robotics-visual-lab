@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef, PhysicsRef } from "../../components/prose";
+import { PageHeader, H2, M, Eq, KeyIdea, Worked, BookRef, PhysicsRef } from "../../components/prose";
 import { Challenge } from "../../components/widgets/Challenge";
+import { Quiz } from "../../components/widgets/Quiz";
 import { ControlBar, LabeledSlider, Readout, WidgetShell, WidgetButton } from "../../components/widgets/WidgetShell";
-import { rad, deg } from "../../lib/math/vec";
+import { rad } from "../../lib/math/vec";
 
 const W = 760;
 const H = 360;
@@ -11,7 +12,6 @@ const GREEN = "#2f9e44";
 const BLUE = "#3b6fd4";
 const PURPLE = "#6741d9";
 const ORANGE = "#c2571c";
-const GOLD = "#caa53d";
 
 // ------------------------------------------------------------------
 // Torque and lever arm
@@ -122,6 +122,9 @@ function MomentOfInertia() {
   const [mass, setMass] = useState(2);
   const [radius, setRadius] = useState(1);
 
+  const ringI = mass * radius * radius;
+  const inertiaMet = Math.abs(ringI - 8) < 0.15 && mass <= 4.05;
+
   const shapes = [
     { label: "Ring / Hoop", formula: "I = mR²", I: mass * radius * radius, color: RED, desc: "All mass at rim" },
     { label: "Solid Disk", formula: "I = ½mR²", I: 0.5 * mass * radius * radius, color: GREEN, desc: "Uniform disk" },
@@ -129,8 +132,6 @@ function MomentOfInertia() {
     { label: "Point mass (axis)", formula: "I = mR²", I: mass * radius * radius, color: ORANGE, desc: "If all at edge" },
   ];
   const maxI = shapes[0].I;
-
-  const diskWin = 0.5 * mass * radius * radius < mass * radius * radius;
 
   return (
     <>
@@ -192,6 +193,11 @@ function MomentOfInertia() {
           <Readout label="I_sphere" value={`${(0.4 * mass * radius * radius).toFixed(3)} kg·m²`} color={BLUE} />
         </ControlBar>
       </WidgetShell>
+      <Challenge id="phys5-inertia-target" met={inertiaMet}>
+        Give the <em>ring</em> a moment of inertia of exactly <M>{"8 \\text{ kg·m}^2"}</M>{" "}
+        (±0.15) using <strong>at most 4 kg</strong> of mass. Mass alone won't get you there —
+        you'll have to exploit the fact that radius enters as <M>{"R^2"}</M>.
+      </Challenge>
     </>
   );
 }
@@ -210,7 +216,6 @@ function RollingRace() {
   // Objects: [hoop, disk, sphere], inertia factors β so I = β·m·R²
   const betas = [1, 0.5, 0.4];
   const colors = [RED, GREEN, BLUE];
-  const labels = ["Hoop\nI=mR²", "Disk\nI=½mR²", "Sphere\nI=⅖mR²"];
   const g = 9.81;
   const th = rad(angle);
   // Rolling acceleration: a = g·sinθ / (1 + β)
@@ -265,14 +270,8 @@ function RollingRace() {
           {/* rolling objects */}
           {positions.map((p, i) => {
             const r = 18 - i * 2;
-            const cx = ox + p * cos - 10 * sin + (i - 1) * 0;
-            const cy = oy - p * sin - r - 2 + (i - 1) * 0;
-            const lane = [ox - 10, ox + 14, ox + 38][i];
-            const lx = lane + p * cos;
-            const ly = oy - p * sin - r;
             // lane offset perpendicular to slope
             const offx = [-25, 0, 25][i];
-            const offy = [-offx * sin / cos * 0, 0, 0][i];
             const rx = ox + p * cos + offx * (-sin);
             const ry = oy - p * sin + offx * cos - r;
             return (
@@ -325,33 +324,64 @@ export default function Rotation() {
   return (
     <div>
       <PageHeader
-        chapter="Chapter 5"
+        chapter="Physics 5"
         section="College Physics & Dynamics"
         title="Rotational Motion"
         lede="Rotation is translation's counterpart. Torque drives angular acceleration, moment of inertia resists it, and angular momentum is conserved when the net torque is zero."
       />
 
       <p>
-        Every translational concept has a rotational analogue. Position becomes angular
-        position <M>{"\\theta"}</M>, velocity becomes angular velocity <M>{"\\omega"}</M>,
-        force becomes torque <M>{"\\tau"}</M>, and mass becomes moment of inertia <M>{"I"}</M>.
-        Newton's second law for rotation is:
+        Try opening a door by pushing right next to the hinge. Same door, same push — and it
+        barely moves. Push at the handle and it swings easily. What changed is not the force
+        but its <em>leverage</em>, and the quantity that captures force-with-leverage is{" "}
+        <strong>torque</strong>: the turning effectiveness of a force. Everything you learned
+        about straight-line motion has a rotational twin. Position becomes angle{" "}
+        <M>{"\\theta"}</M>, velocity becomes angular velocity <M>{"\\omega"}</M> (radians per
+        second), force becomes torque <M>{"\\tau"}</M>, and mass becomes the{" "}
+        <strong>moment of inertia</strong> <M>{"I"}</M>. Newton's second law comes along for
+        the ride:
       </p>
-      <Eq>{"\\tau = I\\alpha, \\qquad \\tau = r \\times F = F\\,d\\,\\sin\\theta."}</Eq>
+      <Eq>{"\\tau = I\\alpha, \\qquad \\tau = F\\,d\\,\\sin\\theta."}</Eq>
       <p>
-        The lever arm <M>{"d"}</M> is the perpendicular distance from the pivot to the line
-        of action of the force. Doubling the lever arm doubles the torque for the same force.
+        Read the second one back: torque is force <M>{"F"}</M>, times the distance{" "}
+        <M>{"d"}</M> from the pivot to where the force is applied, times{" "}
+        <M>{"\\sin\\theta"}</M> — which keeps only the part of the force that pushes{" "}
+        <em>around</em> rather than along the arm. Pull a wrench along its own handle and you
+        get nothing (<M>{"\\theta = 0"}</M>); push square-on (<M>{"\\theta = 90°"}</M>) and
+        every newton counts.
+      </p>
+
+      <p>
+        <strong>Try this:</strong> hold the force at 20 N and find <em>three different ways</em>{" "}
+        to hit the 2 N·m target in the challenge — long arm and shallow angle, short arm and
+        square push, and something in between. Torque trades force, distance, and angle freely;
+        that exchange rate is why a long wrench loosens what a short one cannot.
       </p>
 
       <TorqueLeverArm />
 
       <H2>Moment of inertia depends on mass distribution</H2>
       <p>
-        Moment of inertia is the rotational analogue of mass. For a collection of point
-        masses, <M>{"I = \\sum m_i r_i^2"}</M>. For continuous bodies, the formula depends
-        on how mass is distributed relative to the rotation axis:
+        Moment of inertia is the rotational analogue of mass — reluctance to be spun up. But
+        unlike mass, it is not a property of the object alone: it depends on <em>where</em> the
+        mass sits relative to the axis. Each chunk of mass contributes its mass times the{" "}
+        <em>square</em> of its distance from the axis:
+      </p>
+      <Eq>{"I = \\sum m_i r_i^2."}</Eq>
+      <p>
+        That square is the whole story. Mass twice as far from the axis is four times harder to
+        spin. It is why a figure skater's outstretched arms matter so much, why tightrope
+        walkers carry long poles, and why the three shapes below — same mass, same radius —
+        resist spinning differently:
       </p>
       <Eq>{"I_{\\text{hoop}} = mR^2, \\quad I_{\\text{disk}} = \\tfrac{1}{2}mR^2, \\quad I_{\\text{sphere}} = \\tfrac{2}{5}mR^2."}</Eq>
+      <p>
+        <strong>Try this:</strong> the hoop always tops the chart because <em>all</em> its mass
+        sits at the full radius <M>{"R"}</M>; the disk averages over radii from 0 to{" "}
+        <M>{"R"}</M>, so it comes in at half; the sphere hides even more mass near the axis.
+        Now double the radius slider and watch every bar quadruple — that's the <M>{"R^2"}</M>{" "}
+        speaking. The challenge below forces you to use it.
+      </p>
 
       <MomentOfInertia />
 
@@ -368,6 +398,14 @@ export default function Rotation() {
         (<M>{"\\beta=1"}</M>) down a ramp — regardless of mass or radius.
       </p>
 
+      <p>
+        <strong>Try this:</strong> run the race, then run it again at a steeper angle — the
+        finishing <em>order</em> never changes, only the pace. A giant lead hoop loses to a
+        marble-sized glass sphere. The race is decided entirely by shape, because rolling
+        without slipping forces every object to spend part of its energy budget on spinning,
+        and the hoop's budget line is the worst.
+      </p>
+
       <RollingRace />
 
       <KeyIdea>
@@ -376,16 +414,102 @@ export default function Rotation() {
         matters for racing down a slope.
       </KeyIdea>
 
-      <Aside>
-        In robotics, every joint rotates a link. The link's moment of inertia about the
-        joint axis determines how much torque the actuator needs to accelerate it. The
-        mass matrix in robot dynamics is built from the moments and products of inertia
-        of every link.
-      </Aside>
+      <Worked title="Sizing a joint motor's torque">
+        <p>
+          <strong>Given.</strong> A robot forearm is roughly a uniform rod of mass 3 kg and
+          length 0.5 m, rotating about the elbow (for a rod about its end,{" "}
+          <M>{"I = \\tfrac13 mL^2"}</M>). The spec calls for accelerating it at{" "}
+          <M>{"\\alpha = 8\\ \\text{rad/s}^2"}</M>. What torque must the elbow motor produce?
+        </p>
+        <p>
+          <strong>Set up.</strong>{" "}
+          <M>{"I = \\tfrac13 (3)(0.5)^2 = 0.25\\ \\text{kg·m}^2"}</M>.
+        </p>
+        <p>
+          <strong>Solve.</strong> <M>{"\\tau = I\\alpha = 0.25 \\times 8 = 2"}</M> N·m — the
+          same torque you produced in the first widget's challenge.
+        </p>
+        <p>
+          <strong>Check.</strong> Gravity check: holding the arm horizontally already takes{" "}
+          <M>{"\\tau_g = mg\\tfrac{L}{2} \\approx 7.4"}</M> N·m — more than the acceleration
+          torque! Real motor sizing is usually dominated by gravity, a preview of the
+          gravity-compensation ideas in Module 10 and MR Chapter 8.
+        </p>
+      </Worked>
+
+      <H2>Angular momentum: rotation's conserved currency</H2>
+      <p>
+        Just as force changes momentum, torque changes <strong>angular momentum</strong>{" "}
+        <M>{"L = I\\omega"}</M>. And just as before: no external torque, no change. But here
+        the conservation law has a twist that linear momentum never shows — a body can change
+        its own <M>{"I"}</M> mid-flight. A figure skater pulling her arms in shrinks{" "}
+        <M>{"I"}</M>, so <M>{"\\omega"}</M> must jump to keep <M>{"L = I\\omega"}</M> constant:
+        she spins faster without anyone touching her. Divers, gymnasts, and falling cats play
+        the same trick.
+      </p>
+
+      <Quiz
+        challengeId="phys5-quiz"
+        goal="Answer all three correctly."
+        questions={[
+          {
+            prompt: <>Why are door handles mounted as far from the hinge as possible?</>,
+            options: [
+              { label: "Maximum lever arm — the same force makes the most torque", correct: true },
+              { label: "So the door swings faster once open" },
+              { label: "To reduce the door's moment of inertia" },
+              { label: "Pure convention" },
+            ],
+            explain:
+              "τ = F·d·sinθ. Doubling the distance from the hinge doubles the torque of the same push.",
+          },
+          {
+            prompt: (
+              <>A spinning skater pulls her arms in and speeds up. What stayed constant?</>
+            ),
+            options: [
+              { label: "Angular momentum L = Iω", correct: true },
+              { label: "Angular velocity ω" },
+              { label: "Moment of inertia I" },
+              { label: "Rotational kinetic energy" },
+            ],
+            explain:
+              "No external torque acts, so L is fixed: I drops, ω rises. (Her kinetic energy actually increases — her muscles do work pulling the arms in.)",
+          },
+          {
+            prompt: (
+              <>
+                A huge heavy hoop races a small light solid sphere down the same ramp, both
+                rolling without slipping. Who wins?
+              </>
+            ),
+            options: [
+              { label: "The sphere — β = 2/5 beats β = 1, size and mass are irrelevant", correct: true },
+              { label: "The hoop — heavier means stronger gravity" },
+              { label: "They tie — Galileo says everything falls alike" },
+              { label: "The sphere, but only if it is heavier" },
+            ],
+            explain:
+              "Rolling acceleration is g·sinθ/(1+β): mass and radius cancel, shape survives. Galileo's tie only holds when nothing has to spin.",
+          },
+        ]}
+      />
+
+      <H2>Where you'll use this in Modern Robotics</H2>
+      <p>
+        This module is the physical heart of the whole book. A robot is a chain of rotating
+        links: torque and moment of inertia return in Chapter 8 as the joint torque vector and
+        the mass matrix (built from every link's moments of inertia, and changing as the robot's
+        shape changes — the skater effect in industrial form). The lever-arm picture becomes the
+        Jacobian-transpose rule of Chapter 5, which converts tip forces into joint torques. And{" "}
+        <M>{"\\omega"}</M> gets a serious upgrade in Chapter 3, where angular velocity in 3D
+        becomes a vector with its own algebra.
+      </p>
 
       <BookRef>
-        Physics track: angular kinematics, torque, moment of inertia, rotational kinetic
-        energy, rolling motion, angular momentum.
+        Physics track · Module 5 of 10: angular kinematics, torque, moment of inertia,
+        rotational kinetic energy, rolling motion, angular momentum. Bridges to MR §3 (angular
+        velocity), §5 (statics), §8 (mass matrix).
       </BookRef>
       <PhysicsRef />
     </div>

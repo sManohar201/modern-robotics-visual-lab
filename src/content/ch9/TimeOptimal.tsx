@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { PageHeader, M, Eq, KeyIdea, BookRef } from "../../components/prose";
-import { WidgetShell, LabeledSlider, WidgetButton, Readout } from "../../components/widgets/WidgetShell";
+import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef } from "../../components/prose";
+import { WidgetShell, ControlBar, LabeledSlider, WidgetButton, Readout } from "../../components/widgets/WidgetShell";
 import { Challenge } from "../../components/widgets/Challenge";
+import { Quiz } from "../../components/widgets/Quiz";
 import { Scene3D } from "../../components/three/Scene3D";
 import { Line } from "@react-three/drei";
 import { type Vec3 } from "../../lib/math/vec";
@@ -413,21 +414,71 @@ export default function TimeOptimal() {
         chapter="Chapter 9"
         section="Trajectory Generation"
         title="Time-Optimal Time Scaling"
-        lede="Solve for the minimum-time scaling along a geometric path within the joint torque limit boundaries."
+        lede="The path is fixed; only the speed along it is yours to choose. To traverse it in minimum time, floor the accelerator, then floor the brakes — the entire art is knowing when to switch."
       />
 
       <p>
-        For most robots, the maximum available velocities and accelerations change along a path due to state-dependent dynamics:
+        Here is the whole problem in one drive. You must take a car down a fixed road as fast as
+        possible, starting and ending at rest. Your engine has a maximum push and your brakes a
+        maximum grip, and somewhere along the road there's a curve you cannot take at full speed.
+        Intuition says: floor the gas as long as you dare, then slam the brakes so you arrive
+        exactly at rest. Brake too early and you crawl to the finish; too late and you fly past it
+        (or off the curve). Minimum time comes from maximum effort with <em>one perfectly timed
+        switch</em> — engineers call this a <strong>bang-bang</strong> strategy, because the command
+        slams from one extreme to the other.
+      </p>
+
+      <H2>Warm-up: one car, one road, one switch</H2>
+      <p>
+        To see the structure, we draw the drive in the <strong>phase plane</strong>: a map whose
+        horizontal axis is <em>where you are</em> along the road (<M>{"s"}</M>, from 0 to 1) and
+        whose vertical axis is <em>how fast you are going</em> (<M>{"\\dot s"}</M>). Any way of
+        driving the road is a curve on this map, from the bottom-left corner (start, at rest) to
+        the bottom-right (finish, at rest). The dangerous curve in the road appears as a grey
+        ceiling — the <strong>velocity limit curve</strong> — dipping down where the road demands
+        slowness. Touch the ceiling and you have left the road.
+      </p>
+      <p>
+        <strong>Try this:</strong> in this toy the brakes are 1.5× stronger than the engine, so the
+        switch does <em>not</em> belong at the halfway point — you can afford to accelerate longer
+        than you brake. Slide <M>{"s^*"}</M> and watch the three failure/success modes: too early
+        (the car stalls short of the finish), too late (it crosses the finish still moving — or
+        clips the grey ceiling), and just right (a clean tent-shaped curve landing at rest).
+      </p>
+
+      <CarOnHillWidget />
+
+      <H2>Now the real thing: a robot arm on its path</H2>
+      <p>
+        A robot following a fixed path is exactly the same problem wearing more notation. The
+        "road" is the geometric path <M>{"\\theta(s)"}</M> through joint space; the "engine and
+        brakes" are the joint torque limits. The complication is that a robot's effective strength
+        changes with its shape — its full dynamics are
       </p>
       <Eq>{"M(\\theta)\\ddot{\\theta} + c(\\theta, \\dot{\\theta}) + g(\\theta) = \\tau."}</Eq>
 
       <p>
-        By parametrizing the path by $s$, the dynamics condense to a single vector equation:
+        But because the path is fixed, the only freedom left is the single number <M>{"s(t)"}</M> —
+        how far along we are. Substituting <M>{"\\theta(s)"}</M> into the dynamics condenses them to
+        one vector equation in that one variable:
       </p>
       <Eq>{"m(s)\\ddot{s} + c(s)\\dot{s}^2 + g(s) = \\tau."}</Eq>
       <p>
-        The actuator torque limits define bounds on acceleration: <M>{"L(s, \\dot{s}) \\le \\ddot{s} \\le U(s, \\dot{s})"}</M>.
-        Above the <strong>velocity limit curve</strong>, the bounds disappear (<M>{"L > U"}</M>), making states in that region physically inadmissible.
+        Read it back: <M>{"m(s)"}</M> is how heavy the robot feels against progress along the path
+        at this point, <M>{"c(s)\\dot s^2"}</M> is the velocity-dependent (centripetal/Coriolis)
+        load, and <M>{"g(s)"}</M> is gravity's toll. Pushing each joint torque to its limit and
+        solving for <M>{"\\ddot s"}</M> gives, at every state, a strongest allowed push{" "}
+        <M>{"U(s,\\dot s)"}</M> and a hardest allowed braking <M>{"L(s,\\dot s)"}</M>:{" "}
+        <M>{"L(s, \\dot{s}) \\le \\ddot{s} \\le U(s, \\dot{s})"}</M>. Go fast enough and the two
+        collide (<M>{"L > U"}</M>) — no torque within limits can hold the arm on the path. Those
+        states are the region above the <strong>velocity limit curve</strong>, the robot's version
+        of the toy's grey ceiling, now bumpy because <M>{"m, c, g"}</M> all change along the path.
+      </p>
+      <p>
+        <strong>Try this:</strong> drag <M>{"s^*"}</M> around and reproduce the same three regimes
+        you saw in the warm-up — stall (red), overshoot (orange), clean landing (green). Then press{" "}
+        <em>Auto-Solve Optimally</em> and note where the optimizer puts the switch relative to the
+        dip in the limit curve.
       </p>
 
       <WidgetShell
@@ -538,7 +589,139 @@ export default function TimeOptimal() {
         Time-optimal time scaling is a bang-bang trajectory: the robot operates at maximum acceleration until a switching point, and then switches to maximum deceleration. Switching too early causes the robot to stall, while switching too late leads to overshooting the target velocity.
       </KeyIdea>
 
+      <Aside>
+        On rougher paths the optimal solution can need <em>several</em> switches, and can even ride
+        along the velocity limit curve for a stretch — imagine a road with two tight curves in a
+        row. The one-switch picture on this page is the atom from which those solutions are built.
+      </Aside>
+
+      <Quiz
+        challengeId="ch9-timeopt-quiz"
+        goal={<>Confirm the phase-plane picture.</>}
+        questions={[
+          {
+            prompt: <>In the phase plane of this page, what does a single point represent?</>,
+            options: [
+              { label: <>A state: where along the path the robot is, and how fast it is moving along it</>, correct: true },
+              { label: <>A joint angle pair (θ₁, θ₂)</> },
+              { label: <>A position of the end-effector in space</> },
+            ],
+            explain: <>The whole trick of time scaling is collapsing an n-joint robot to two numbers, s and ṡ, because the path pins everything else down.</>,
+          },
+          {
+            prompt: <>Why is the region above the velocity limit curve forbidden?</>,
+            options: [
+              { label: <>Moving that fast, no torque within the motor limits can keep the robot on the path</>, correct: true },
+              { label: <>The robot's software refuses to go faster</> },
+              { label: <>The end-effector would leave the workspace</> },
+            ],
+            explain: <>Above the curve the required-torque interval is empty: L &gt; U. It's not a rule, it's physics — like a car that simply cannot hold a hairpin at 200 km/h.</>,
+          },
+          {
+            prompt: <>You switch from full acceleration to full braking slightly too <em>early</em>. What happens?</>,
+            options: [
+              { label: <>The robot comes to rest before the end of the path — it stalls short</>, correct: true },
+              { label: <>It overshoots the goal at nonzero speed</> },
+              { label: <>It violates the velocity limit curve</> },
+            ],
+            explain: <>Braking removes speed at a fixed maximum rate; start too soon and you run out of speed before you run out of path. Too late gives the opposite failure.</>,
+          },
+        ]}
+      />
+
       <BookRef>Modern Robotics §9.4 — Time-Optimal Time Scaling.</BookRef>
     </div>
+  );
+}
+
+/* =============== warm-up: 1-DOF car on a hilly road =============== */
+
+const CAR_A = 2.0; // engine accel limit
+const CAR_B = 3.0; // brake decel limit (stronger: optimal switch at B/(A+B) = 0.6)
+const carVLim = (s: number) => 2.6 - 1.4 * Math.exp(-((s - 0.8) ** 2) / 0.012);
+
+function CarOnHillWidget() {
+  const [sw, setSw] = useState(0.4);
+
+  // integrate the bang-bang profile: v dv = a ds  ⇒  v² accumulates 2a·ds
+  const NSTEP = 400;
+  const pts: [number, number][] = [[0, 0]];
+  let v2 = 0;
+  let stalledAt: number | null = null;
+  let hitLimit = false;
+  for (let i = 0; i < NSTEP; i++) {
+    const s = (i + 0.5) / NSTEP;
+    const a = s < sw ? CAR_A : -CAR_B;
+    v2 += (2 * a) / NSTEP;
+    if (v2 <= 0 && s < 1 - 1e-9) { stalledAt = s; v2 = 0; break; }
+    const v = Math.sqrt(Math.max(0, v2));
+    if (v > carVLim((i + 1) / NSTEP)) hitLimit = true;
+    pts.push([(i + 1) / NSTEP, v]);
+  }
+  const vEnd = stalledAt === null ? Math.sqrt(Math.max(0, v2)) : 0;
+  const landed = stalledAt === null && !hitLimit && vEnd < 0.12;
+  const status = hitLimit ? "leaves the road!" : stalledAt !== null ? `stalls at s = ${stalledAt.toFixed(2)}` : landed ? "clean landing at rest" : `crosses finish at ${vEnd.toFixed(2)}`;
+  const color = landed ? "#2f9e44" : hitLimit || stalledAt !== null ? "#d9483f" : "#f59f00";
+
+  // drawing
+  const W = 620, H = 300, padL = 46, padB = 34, padT = 16, padR = 14;
+  const sx = (s: number) => padL + s * (W - padL - padR);
+  const sy = (v: number) => H - padB - (v / 3.0) * (H - padB - padT);
+  const limPts = Array.from({ length: 121 }, (_, i) => {
+    const s = i / 120;
+    return `${sx(s).toFixed(1)},${sy(carVLim(s)).toFixed(1)}`;
+  });
+  const shade = `${sx(0)},${sy(3)} ${limPts.join(" ")} ${sx(1)},${sy(3)}`;
+  const path = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${sx(p[0]).toFixed(1)} ${sy(p[1]).toFixed(1)}`).join(" ");
+
+  return (
+    <>
+      <WidgetShell
+        title="One switch, three outcomes — the car in its phase plane"
+        onReset={() => setSw(0.4)}
+        caption="Horizontal: position along the road. Vertical: speed. Grey region: speeds the road cannot tolerate (the velocity limit curve is its lower edge). The car accelerates flat-out until s*, then brakes flat-out. Land in the bottom-right corner."
+      >
+        <svg viewBox={`0 0 ${W} ${H}`} className="block w-full rounded-lg bg-[#fbfaf7]">
+          {/* axes */}
+          <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="#b6b2a4" strokeWidth={1.4} />
+          <line x1={padL} y1={padT} x2={padL} y2={H - padB} stroke="#b6b2a4" strokeWidth={1.4} />
+          {[0, 0.25, 0.5, 0.75, 1].map(s => (
+            <g key={s}>
+              <line x1={sx(s)} y1={H - padB} x2={sx(s)} y2={H - padB + 5} stroke="#b6b2a4" />
+              <text x={sx(s)} y={H - padB + 18} textAnchor="middle" className="ui fill-[var(--ink-faint)] text-[10px]">{s}</text>
+            </g>
+          ))}
+          <text x={W - padR} y={H - 6} textAnchor="end" className="ui fill-[var(--ink-faint)] text-[11px]">position s →</text>
+          <text x={padL - 8} y={sy(1)} textAnchor="end" className="ui fill-[var(--ink-faint)] text-[10px]">1</text>
+          <text x={padL - 8} y={sy(2)} textAnchor="end" className="ui fill-[var(--ink-faint)] text-[10px]">2</text>
+          <text x={14} y={padT + 10} className="ui fill-[var(--ink-faint)] text-[11px]">ṡ</text>
+          {/* forbidden region */}
+          <polygon points={shade} fill="#e9ecef" opacity={0.8} />
+          <polyline points={limPts.join(" ")} fill="none" stroke="#adb5bd" strokeWidth={2} strokeDasharray="4 4" />
+          <text x={sx(0.8)} y={sy(carVLim(0.8)) - 8} textAnchor="middle" className="ui text-[10px] font-semibold fill-[#868e96]">tight curve — slow down</text>
+          {/* switch line */}
+          <line x1={sx(sw)} y1={padT} x2={sx(sw)} y2={H - padB} stroke="#3b6fd4" strokeWidth={1.5} strokeDasharray="3 4" />
+          <text x={sx(sw) + 5} y={padT + 12} className="ui text-[10px] font-semibold" fill="#3b6fd4">s* = {sw.toFixed(2)}</text>
+          <text x={sx(Math.max(0.03, sw / 2))} y={H - padB - 8} textAnchor="middle" className="ui text-[10px]" fill="#2f9e44">gas ⟶</text>
+          <text x={sx(Math.min(0.97, sw + (1 - sw) / 2))} y={H - padB - 8} textAnchor="middle" className="ui text-[10px]" fill="#d9483f">⟵ brake</text>
+          {/* trajectory */}
+          <path d={path} fill="none" stroke={color} strokeWidth={3} />
+          {/* start & goal markers */}
+          <circle cx={sx(0)} cy={sy(0)} r={5} fill="#33343d" />
+          <circle cx={sx(1)} cy={sy(0)} r={6.5} fill="none" stroke="#2f9e44" strokeWidth={2.5} />
+        </svg>
+        <ControlBar>
+          <LabeledSlider label="switch s*" value={sw} min={0.1} max={0.9} step={0.01} onChange={setSw} fmt={v => v.toFixed(2)} width={220} />
+          <Readout label="outcome" value={status} color={color} />
+          <Readout label="engine / brake" value={`${CAR_A.toFixed(1)} / ${CAR_B.toFixed(1)}`} />
+        </ControlBar>
+      </WidgetShell>
+      <Challenge id="ch9-car-switch" met={landed}>
+        Land the car exactly at rest on the finish line without touching the grey ceiling. The
+        brakes are 1.5× stronger than the engine, so the answer is <em>not</em> halfway — you can
+        afford to keep accelerating until braking distance just fits in what's left:{" "}
+        <M>{"s^* = B/(A+B)"}</M>.
+      </Challenge>
+    </>
   );
 }

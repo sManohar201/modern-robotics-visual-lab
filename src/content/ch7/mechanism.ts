@@ -233,7 +233,7 @@ export function fourBarPoints(theta: number, branch: 0 | 1): { O0: V2; O1: V2; P
 export const FB5_L = 1.0;
 export const FB5_BASE = 1.6;
 
-function circInt(c1: V2, r1: number, c2: V2, r2: number): V2[] {
+export function circInt(c1: V2, r1: number, c2: V2, r2: number): V2[] {
   const dx = c2[0] - c1[0], dy = c2[1] - c1[1];
   const d = Math.hypot(dx, dy);
   if (d < 1e-9 || d > r1 + r2 || d < Math.abs(r1 - r2)) return [];

@@ -34,10 +34,17 @@ export default function Statics() {
       </p>
       <Eq>{"H_a\\,\\dot q_a + H_p\\,\\dot q_p = 0 \\;\\Longrightarrow\\; \\dot q_p = -H_p^{-1} H_a\\,\\dot q_a,"}</Eq>
       <p>
-        provided the <strong>constraint Jacobian</strong> block <M>{"H_p"}</M> is invertible. Feed the
-        passive rates back into any one leg's forward kinematics and you get the platform twist{" "}
-        <M>{"\\mathcal V = J(q)\\,\\dot q_a"}</M>. (When <M>{"H_p"}</M> drops rank, the passive rates
-        are undetermined — an <em>actuator singularity</em>, the next page.)
+        Read this the way you read the Jacobian in Chapter 5 — column by column. Each column of{" "}
+        <M>{"H_a"}</M> answers: "if I nudge <em>this</em> motor alone at unit speed, how fast does
+        the loop-closure error start to grow?" Each column of <M>{"H_p"}</M> answers the same
+        question for one passive joint. The equation says the two families of nudges must cancel:
+        whatever violation the motors create, the passive joints must swing to absorb, so the loop
+        stays closed. Solving for <M>{"\\dot q_p"}</M> is just asking the passive joints to do that
+        absorbing — possible exactly when the <strong>constraint Jacobian</strong> block{" "}
+        <M>{"H_p"}</M> is invertible. Feed the passive rates back into any one leg's forward
+        kinematics and you get the platform twist <M>{"\\mathcal V = J(q)\\,\\dot q_a"}</M>. (When{" "}
+        <M>{"H_p"}</M> drops rank, the passive rates are undetermined — an{" "}
+        <em>actuator singularity</em>, the next page.)
       </p>
 
       <H2>The Stewart–Gough shortcut: statics gives the Jacobian</H2>
@@ -53,6 +60,14 @@ export default function Statics() {
         Read off the columns and you have the inverse Jacobian <M>{"J_s^{-1}"}</M> with no
         differentiation at all — the static duality <M>{"\\tau = J^{\\mathsf T}\\mathcal F"}</M> doing
         the work. Push on the legs below and watch the six wrenches combine.
+      </p>
+
+      <p>
+        <strong>Try this:</strong> start from all six efforts equal and nudge just <M>{"\\tau_1"}</M>{" "}
+        up: the moment norm jumps — one leg pushing harder than its mirror twists the platform.
+        Then restore symmetry a different way (for instance all six at 2.0, or all six at 0.5) and
+        watch the moment collapse to zero again while only the force magnitude changes. The column
+        structure <M>{"[q_i\\times\\hat n_i;\\ \\hat n_i]"}</M> is doing exactly this bookkeeping.
       </p>
 
       <StaticsWidget />

@@ -16,10 +16,6 @@ const GOLD = "#caa53d";
 const SEL = "#6741d9";
 const SHOULDER: Vec3 = [0, 0, 1];
 
-function eeOf(joints: typeof PUMA_JOINTS, Mp: typeof PUMA_M, thetas: number[]): Vec3 {
-  const st = armState(joints, Mp, thetas);
-  return [st.ee.p[0], st.ee.p[1], st.ee.p[2]];
-}
 
 function skeleton(joints: typeof PUMA_JOINTS, Mp: typeof PUMA_M, thetas: number[]): Vec3[] {
   const st = armState(joints, Mp, thetas);

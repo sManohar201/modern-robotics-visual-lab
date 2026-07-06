@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef } from "../../components/prose";
+import { Quiz } from "../../components/widgets/Quiz";
 import { WidgetShell, ControlBar, LabeledSlider, Readout } from "../../components/widgets/WidgetShell";
 import { Challenge } from "../../components/widgets/Challenge";
 import { Scene3D, Triad } from "../../components/three/Scene3D";
@@ -10,7 +11,6 @@ import { SG_A, SG_HOME_H, sgPlatformPt, sgLegs, rotZYX } from "./mechanism";
 const GHOST: [string, string, string] = ["#dcb6b4", "#b8d4bd", "#b4c4dd"];
 const BASEc = "#9b968a";
 const PLATc = "#6741d9";
-const LEGc = "#0b7285";
 
 const LEGCOLORS = ["#0b7285", "#1864ab", "#c2571c", "#a61e4d", "#2f9e44", "#9c6b16"];
 
@@ -28,8 +28,12 @@ export default function StewartGough() {
         The <strong>Stewart–Gough platform</strong> is the spatial cousin of the 3×RPR: a fixed base
         and a moving platform joined by six legs, each a spherical joint, an actuated prismatic
         slider, and another spherical joint (the <strong>6×SPS</strong> design). Six legs drive all
-        six degrees of freedom of the moving platform.
+        six degrees of freedom of the moving platform. You have probably ridden one: nearly every
+        full-motion flight simulator is a cockpit bolted to a Stewart–Gough platform, heaving and
+        tilting on its six telescoping legs.
       </p>
+
+      <H2>Six loop closures, six square roots</H2>
       <p>
         The loop closure is the spatial version of before. With <M>{"p\\in\\mathbb R^3"}</M> the
         platform origin and <M>{"R\\in SO(3)"}</M> its orientation, leg <M>{"i"}</M> runs from base
@@ -42,14 +46,36 @@ export default function StewartGough() {
         Tilt, twist, and slide the platform below; all six actuator lengths update live.
       </p>
 
+      <p>
+        <strong>Try this:</strong> first slide only <M>{"z"}</M>: all six legs lengthen together, as
+        symmetry demands. Then apply pure yaw and notice something less obvious — the legs change
+        length even though the platform's center never moves, because each anchor{" "}
+        <M>{"Rb_i"}</M> swings sideways. Finally combine pitch and roll for the flight-simulator
+        feel and watch six different numbers dance, every one still a single square root.
+      </p>
+
       <SgWidget />
 
+      <H2>Why "up to forty" is believable</H2>
+      <p>
+        The forward kinematics — recover <M>{"(R,p)"}</M> from the six lengths — is the hard
+        direction again, and here the multiplicity is famous: up to <strong>40</strong> real
+        assemblies. Where could such a number come from? Recall the planar story: each loop-closure
+        equation is a <em>quadratic</em> (squared distances), and quadratics multiply choices — one
+        circle meeting another gives 2 points, and the 3×RPR's three quadratics compounded into a
+        degree-6 problem. The Stewart–Gough has <em>six</em> quadratic length constraints tangled
+        with the quadratic conditions that keep <M>{"R"}</M> a rotation matrix
+        (<M>{"R^{\\mathsf T}R=I"}</M> is six more equations). Naive multiplication of all those 2s
+        would allow hundreds; careful elimination shows most cancel, and what survives is a
+        degree-40 problem. The count is not obvious — proving 40 took until the 1990s — but the{" "}
+        <em>mechanism</em> of multiplicity is exactly the one you watched on the previous page:
+        quadratic constraints intersecting each other many times.
+      </p>
       <Aside>
-        The forward kinematics — recover <M>{"(R,p)"}</M> from the six lengths — is the hard one: six
-        length constraints plus the six independent entries of <M>{"R^{\\mathsf T}R=I"}</M> form a{" "}
-        12-equation system whose general solution can have up to <strong>40</strong> real assemblies.
-        That asymmetry is the whole personality of a parallel mechanism: easy to <em>command</em>,
-        hard to <em>predict</em> from raw joint readings.
+        Easy to <em>command</em>, hard to <em>predict</em> from raw joint readings — that asymmetry
+        is the whole personality of a parallel mechanism. Real controllers sidestep the 40-fold
+        ambiguity the practical way: they track the pose continuously from a known starting
+        assembly, so the platform never has to guess which of the 40 it is in.
       </Aside>
 
       <KeyIdea>
@@ -58,6 +84,40 @@ export default function StewartGough() {
         forward kinematics is a 12-equation system with up to forty solutions. Its closed-loop
         stiffness is what makes it a precise motion simulator and six-axis force sensor.
       </KeyIdea>
+
+      <Quiz
+        challengeId="ch7-sg-quiz"
+        goal={<>Lock in the Stewart–Gough picture.</>}
+        questions={[
+          {
+            prompt: <>A flight simulator's computer knows the desired cockpit pose and must command the six leg lengths. How hard is that computation?</>,
+            options: [
+              { label: <>Trivial — six independent square roots, one per leg</>, correct: true },
+              { label: <>Hard — it must solve a degree-40 polynomial</> },
+              { label: <>Impossible without iteration</> },
+            ],
+            explain: <>Commanding a pose is inverse kinematics, the easy direction: <M>{"s_i=\\lVert p+Rb_i-a_i\\rVert"}</M>, evaluated leg by leg.</>,
+          },
+          {
+            prompt: <>Where does the "up to 40 solutions" of the forward problem ultimately come from?</>,
+            options: [
+              { label: <>Many quadratic constraints (leg lengths + R being a rotation) intersecting each other</>, correct: true },
+              { label: <>Backlash in the spherical joints</> },
+              { label: <>The six legs being different lengths</> },
+            ],
+            explain: <>Squared distances are quadratics, and so are the entries of <M>{"R^{\\mathsf T}R=I"}</M>. Multiplicity compounds exactly as it did for the planar 3×RPR — just much further.</>,
+          },
+          {
+            prompt: <>Pure yaw about the platform's center changes the leg lengths. Why?</>,
+            options: [
+              { label: <>Each platform anchor Rb_i swings sideways, changing its distance to its base anchor</>, correct: true },
+              { label: <>It shouldn't — that reading indicates a fault</> },
+              { label: <>Because yaw changes the platform's height</> },
+            ],
+            explain: <>The center staying put doesn't mean the anchors stay put. The legs connect anchor to anchor, and those move under any rotation.</>,
+          },
+        ]}
+      />
 
       <BookRef>Modern Robotics §7.1.2 — Inverse and forward kinematics of the Stewart–Gough platform.</BookRef>
     </div>

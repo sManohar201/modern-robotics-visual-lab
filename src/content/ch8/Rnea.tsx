@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { PageHeader, M, Eq, KeyIdea, Aside, BookRef } from "../../components/prose";
+import { PageHeader, M, Eq, KeyIdea, Aside, Worked, BookRef } from "../../components/prose";
+import { Quiz } from "../../components/widgets/Quiz";
 import { WidgetShell, LabeledSlider, WidgetButton, Readout } from "../../components/widgets/WidgetShell";
 import { Challenge } from "../../components/widgets/Challenge";
 import { Scene3D, Triad } from "../../components/three/Scene3D";
@@ -118,9 +119,20 @@ export default function Rnea() {
       />
 
       <p>
-        Inverse dynamics asks: given the state <M>{"(\\theta, \\dot\\theta)"}</M> and a desired
-        acceleration <M>{"\\ddot\\theta"}</M>, what joint torques <M>{"\\tau"}</M> are required?
-        The <strong>recursive Newton–Euler algorithm</strong> (RNEA) answers it in two sweeps:
+        Picture a bucket brigade — a line of people passing buckets along a chain. The robot's
+        links form one. First a message travels <em>outward</em> from the base: "here is how fast
+        you are moving and accelerating," each link telling the next, adding its own joint's
+        contribution as it passes the word along. Then the buckets come <em>back</em>: starting at
+        the fingertip, each link hands its neighbor the total force it needs to do its job —
+        support its own weight, produce its own acceleration, plus <em>everything the links beyond
+        it handed over</em>. By the time the bucket reaches the shoulder it contains the whole
+        arm's demands. Each motor's torque is simply its share of the bucket passing through it.
+      </p>
+      <p>
+        That is the entire algorithm. Formally: inverse dynamics asks, given the state{" "}
+        <M>{"(\\theta, \\dot\\theta)"}</M> and a desired acceleration <M>{"\\ddot\\theta"}</M>,
+        what joint torques <M>{"\\tau"}</M> are required? The{" "}
+        <strong>recursive Newton–Euler algorithm</strong> (RNEA) answers it in two sweeps:
       </p>
       <ol>
         <li>
@@ -139,9 +151,53 @@ export default function Rnea() {
       </ol>
       <Eq>{"\\mathcal{F}_i = \\mathrm{Ad}^{\\mathsf T}_{T_{i+1,i}}(\\mathcal{F}_{i+1}) + \\mathcal{G}_i\\dot{\\mathcal{V}}_i - \\mathrm{ad}^{\\mathsf T}_{\\mathcal{V}_i}(\\mathcal{G}_i\\mathcal{V}_i), \\qquad \\tau_i = \\mathcal{F}_i^{\\mathsf T}\\mathcal{A}_i."}</Eq>
       <p>
+        Don't let the adjoints intimidate you — the equation is the bucket, term by term. The first
+        term is <em>what the next link handed back</em> (<M>{"\\mathcal F_{i+1}"}</M>), with{" "}
+        <M>{"\\mathrm{Ad}^{\\mathsf T}"}</M> doing nothing more exotic than re-expressing that
+        wrench in this link's frame — the same force and moment, new bookkeeping point (a force at
+        your fingertip is also a twist at your elbow). The second term is <em>this link's own
+        demand</em>: mass times acceleration in wrench form. The third is a velocity correction
+        (zero whenever the arm isn't moving). Add them, and the joint torque is the one component
+        of the total that this joint's axis <M>{"\\mathcal A_i"}</M> can actually feel — a single
+        dot product.
+      </p>
+
+      <Worked title="Pass the bucket down a 2-link arm">
+        <p>
+          <strong>Given.</strong> A planar 2-link arm held horizontally at rest. Each link: mass 1
+          kg, length 1 m, weight acting at its middle. No tip load. What are the holding torques?
+        </p>
+        <p>
+          <strong>Backward sweep, link 2 (outermost).</strong> Its bucket contains only its own
+          weight, 9.81 N at 0.5 m past the elbow. Projecting onto the elbow axis:{" "}
+          <M>{"\\tau_2 = 9.81 \\times 0.5 \\approx 4.9"}</M> N·m.
+        </p>
+        <p>
+          <strong>Hand the bucket to link 1.</strong> The elbow passes back the same 9.81 N — but
+          seen from the shoulder that force acts at 1.5 m (that is all the adjoint transpose is
+          doing: same force, new lever arm). Link 1 adds its own weight, 9.81 N at 0.5 m.
+        </p>
+        <p>
+          <strong>Shoulder torque.</strong>{" "}
+          <M>{"\\tau_1 = 9.81(0.5) + 9.81(1.5) \\approx 19.6"}</M> N·m — four times the elbow's,
+          from identical links. <strong>Check:</strong> in the widget, set unit masses, lay the arm
+          out flat, and compare the two gold arcs: the shoulder's is by far the largest. The
+          bucket always gets heavier toward the base.
+        </p>
+      </Worked>
+
+      <p>
         Below is the static slice (<M>{"\\dot\\theta = \\ddot\\theta = 0"}</M>): only gravity and
         the tip load survive, so the readouts are the holding torques each motor must supply. The{" "}
         <span style={{ color: TORQUE_COLOR }}>gold arcs</span> show those torques live.
+      </p>
+      <p>
+        <strong>Try this:</strong> straighten the arm out horizontally and read the three torques —
+        they grow toward the base, exactly like the worked example. Then push a purely vertical
+        tip load <M>{"F_z"}</M> and watch <em>every</em> gold arc respond: a force entering at the
+        tip rides the bucket brigade all the way down. Finally note that <M>{"\\tau_1"}</M> ignores
+        gravity entirely no matter the pose — its axis is vertical — but leaps awake the moment you
+        apply a horizontal <M>{"F_x"}</M> or <M>{"F_y"}</M>.
       </p>
 
       <WidgetShell
@@ -238,6 +294,40 @@ export default function Rnea() {
         propagating accelerations, then inward propagating wrenches, solving one screw equation
         per link. It is <M>{"O(n)"}</M> and is how real robots compute torques in real time.
       </KeyIdea>
+
+      <Quiz
+        challengeId="ch8-rnea-quiz"
+        goal={<>Own the two-sweep structure.</>}
+        questions={[
+          {
+            prompt: <>In the backward sweep, what does link i receive from link i+1?</>,
+            options: [
+              { label: <>The total wrench link i+1 needs — its own demands plus everything from links beyond it</>, correct: true },
+              { label: <>Only link i+1's weight</> },
+              { label: <>Its joint angle and velocity</> },
+            ],
+            explain: <>The bucket accumulates: each link adds its own inertial and gravity demands to whatever it was handed. That's why base joints carry the most.</>,
+          },
+          {
+            prompt: <>How does gravity enter the RNEA?</>,
+            options: [
+              { label: <>As a fake upward acceleration of the base, inherited by every link in the forward sweep</>, correct: true },
+              { label: <>As an extra torque added to each motor at the end</> },
+              { label: <>It doesn't; RNEA ignores gravity</> },
+            ],
+            explain: <>Accelerating the base upward at g is indistinguishable from gravity pulling everything down — one initial condition handles all links' weights automatically.</>,
+          },
+          {
+            prompt: <>Why do real-time controllers use RNEA instead of evaluating the closed-form M(θ)θ̈ + c + g?</>,
+            options: [
+              { label: <>Two O(n) sweeps of small equations beat assembling giant symbolic matrices</>, correct: true },
+              { label: <>The closed form gives different (wrong) torques</> },
+              { label: <>RNEA also solves the forward kinematics</> },
+            ],
+            explain: <>Both give identical answers — RNEA just never builds M, c, g explicitly. One local screw equation per link, linear in the number of joints, every millisecond.</>,
+          },
+        ]}
+      />
 
       <BookRef>Modern Robotics §8.3 — Newton–Euler Inverse Dynamics (Eqs. 8.50–8.54).</BookRef>
     </div>

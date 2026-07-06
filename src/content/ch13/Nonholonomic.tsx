@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef } from "../../components/prose";
+import { Quiz } from "../../components/widgets/Quiz";
 import { WidgetShell, LabeledSlider, WidgetButton, Readout } from "../../components/widgets/WidgetShell";
 import { Challenge } from "../../components/widgets/Challenge";
 import { deg, rad, wrapAngle, clamp } from "../../lib/math/vec";
@@ -139,27 +140,52 @@ export default function Nonholonomic() {
         the kinematics never violate the Pfaffian constraint.
       </p>
 
+      <p>
+        <strong>Try this:</strong> hold <em>drive</em> with the wheel straight, then again at full
+        steering lock. However you combine throttle and steering, watch the readout: the body
+        lateral speed <M>{"v_{by}"}</M> is pinned at 0.000 the entire time. The red crossed arrow
+        is a direction your controls simply do not own — at this instant. Keep an eye on where the
+        car <em>ends up</em>, though; that is the loophole the next section exploits.
+      </p>
+
       <CarSandbox />
 
-      <H2>Reaching the unreachable: the Lie bracket</H2>
+      <H2>The wiggle trick</H2>
       <p>
-        If the car can never move along <M>{"\\hat y_b"}</M>, how does it end up one slot to the
-        side? By <em>alternating</em> the two allowed motions. Following <M>{"g_1"}</M> for a short
-        time, then <M>{"g_2"}</M>, then <M>{"-g_1"}</M>, then <M>{"-g_2"}</M> does not return to
-        the start — it leaves a net displacement in the direction of the{" "}
-        <strong>Lie bracket</strong>:
+        If the car can never move sideways, how does it end up one parking slot to the side? You
+        already know the answer from a crowded street — you <em>wiggle</em>. Back up with the wheel
+        turned toward the curb; the car creeps back <em>and rotates in</em>. Counter-steer and ease
+        forward; the car creeps forward <em>and rotates back out</em>. Heading: restored. Forward
+        progress: cancelled. But the two arcs were not mirror images — the rotation changed which
+        way "forward" pointed midway — so the leftovers don't cancel, and the leftover is a small{" "}
+        <strong>net sideways shift</strong>. Repeat the wiggle and you inch toward the curb, one
+        forbidden sliver at a time.
+      </p>
+      <p>
+        Mathematics has a name for "do <M>{"g_1"}</M> briefly, then <M>{"g_2"}</M>, then undo{" "}
+        <M>{"g_1"}</M>, then undo <M>{"g_2"}</M>, and see what's left over": the{" "}
+        <strong>Lie bracket</strong> of the two motions,
       </p>
       <Eq>{"g_3 = [g_1, g_2] = \\frac{\\partial g_2}{\\partial q}g_1 - \\frac{\\partial g_1}{\\partial q}g_2 = \\begin{bmatrix} 0 \\\\ \\sin\\phi \\\\ -\\cos\\phi \\end{bmatrix}."}</Eq>
       <p>
-        That bracket points exactly along the forbidden lateral direction. Because{" "}
-        <M>{"\\det[\\,g_1\\;g_2\\;g_3\\,] = 1 \\ne 0"}</M> for all <M>{"\\phi"}</M>, the three
-        vector fields span the whole tangent space: the Lie algebra is full rank, so the car is{" "}
-        <strong>small-time locally controllable</strong> and can reach any{" "}
-        <M>{"(\\phi, x, y)"}</M>. The catch — visible in your own driving — is that bracket motion
-        is <em>slow</em>: a wiggle of size <M>{"\\epsilon"}</M> in the controls buys only{" "}
-        <M>{"\\epsilon^2"}</M> of sideways travel. Parking is tedious precisely because it lives
+        Read the result: for the car, the bracket of <em>drive</em> and <em>turn</em> points
+        exactly along the forbidden lateral direction <M>{"\\hat y_b"}</M>. The wiggle manufactures
+        the missing motion out of the two you have. The catch — painfully familiar — is that
+        bracket motion is <em>slow</em>: a wiggle of size <M>{"\\epsilon"}</M> in the controls buys
+        only about <M>{"\\epsilon^2"}</M> of sideways travel. Halve the room you have to maneuver
+        and you need roughly four times the wiggling. Parking is tedious precisely because it lives
         on the Lie bracket.
       </p>
+      <Aside>
+        The formal statement: with <M>{"g_3=[g_1,g_2]"}</M>,{" "}
+        <M>{"\\det[\\,g_1\\;g_2\\;g_3\\,] = 1 \\ne 0"}</M> for every heading <M>{"\\phi"}</M>, so
+        drive, turn, and their bracket span all three velocity directions everywhere. A system
+        whose control fields and iterated brackets span the whole tangent space is{" "}
+        <strong>small-time locally controllable</strong> (STLC): it can reach every configuration
+        in any neighborhood, given enough wiggling. The Pfaffian constraint is therefore{" "}
+        <strong>nonholonomic</strong> — it constrains velocities without eliminating any
+        configurations.
+      </Aside>
 
       <ParkingChallenge />
 
@@ -181,6 +207,40 @@ export default function Nonholonomic() {
         only <M>{"\\mathrm{span}(\\mathcal{U}) = \\mathbb{R}^2"}</M> and is merely small-time
         locally accessible — it still parks, just never straight backward in a tight spot.
       </Aside>
+
+      <Quiz
+        challengeId="ch13-nonholo-quiz"
+        goal={<>Separate instantaneous from reachable.</>}
+        questions={[
+          {
+            prompt: <>The no-side-slip constraint holds at every single instant, yet the car can reach any pose in the plane. How are both true at once?</>,
+            options: [
+              { label: <>The constraint limits velocities, not configurations — sequences of allowed velocities still reach everywhere</>, correct: true },
+              { label: <>The constraint is only approximate and small violations accumulate</> },
+              { label: <>They aren't; some poses are permanently unreachable</> },
+            ],
+            explain: <>That is the definition of nonholonomic: a velocity constraint that cannot be integrated into a constraint on q. The C-space stays fully 3-D; only the instantaneous menu is reduced.</>,
+          },
+          {
+            prompt: <>Why does parallel parking take so many back-and-forth motions in a tight spot?</>,
+            options: [
+              { label: <>Sideways motion comes from the Lie bracket, and an ε-sized wiggle yields only ~ε² of it</>, correct: true },
+              { label: <>Because reverse gear is slower than forward</> },
+              { label: <>Because the steering column adds friction</> },
+            ],
+            explain: <>Tighter spot ⇒ smaller allowed wiggles ⇒ quadratically less sideways gain per wiggle ⇒ many more wiggles. The ε² scaling is the price of manufactured motion.</>,
+          },
+          {
+            prompt: <>A robot vacuum with two independently driven wheels (differential drive) — is it nonholonomic?</>,
+            options: [
+              { label: <>Yes — it also cannot slide sideways, same Pfaffian constraint as the car</>, correct: true },
+              { label: <>No — having two motors makes it fully actuated</> },
+              { label: <>No — only cars with steering wheels are nonholonomic</> },
+            ],
+            explain: <>Unicycle, differential drive, and car all share the model <M>{"\\dot q = g_1 v + g_2\\omega"}</M> and the v_by = 0 constraint; they differ only in their (v, ω) limits.</>,
+          },
+        ]}
+      />
 
       <BookRef>Modern Robotics §13.3 — Nonholonomic Wheeled Mobile Robots (Eqs. 13.16–13.18, 13.28); §2.4 — Pfaffian constraints.</BookRef>
     </div>

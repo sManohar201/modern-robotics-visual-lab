@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Line } from "@react-three/drei";
-import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef } from "../../components/prose";
+import { PageHeader, H2, M, Eq, KeyIdea, BookRef } from "../../components/prose";
 import { WidgetShell, ControlBar, LabeledSlider, WidgetButton, Readout } from "../../components/widgets/WidgetShell";
 import { Challenge } from "../../components/widgets/Challenge";
 import { Scene3D, Triad } from "../../components/three/Scene3D";
 import { SpatialArm, armState } from "../../components/three/SpatialArm";
 import { PointArrow, ScrewAxisLine } from "../../components/three/viz3d";
 import { Vec6Display } from "../../components/widgets/MatrixDisplay";
-import { type Vec3, type Vec6, rad, deg, vadd, vcross, vsub, vnorm, vunit, vscale } from "../../lib/math/vec";
+import { type Vec3, rad, deg, vadd, vcross, vsub, vnorm, vunit, vscale } from "../../lib/math/vec";
 import { jacobianSpace } from "../../lib/math/se3";
 import { ARM_JOINTS, ARM_M, ARM_COLORS, ARM_HOME, eePointVel } from "./arm";
 
