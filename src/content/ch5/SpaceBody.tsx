@@ -24,14 +24,27 @@ export default function SpaceBody() {
         chapter="Chapter 5"
         section="Velocity Kinematics & Statics"
         title="Space & Body Jacobian"
-        lede="The same end-effector velocity can be written in the fixed frame or the end-effector frame. Each gives a Jacobian whose columns are joint screw axes — displaced by the joints before, or after."
+        lede="One motion, two descriptions: the room's view of the moving hand, or the hand's own view. Each gives a Jacobian whose columns are joint screw axes — displaced by the joints before, or after."
       />
 
       <p>
-        A twist can be expressed in the fixed frame <M>{"\\{s\\}"}</M> or the body frame{" "}
-        <M>{"\\{b\\}"}</M>, so there are two Jacobians for the same arm:
+        A drone's motion can be reported two ways: ground radar says "heading north-east at 3 m/s,"
+        while the drone's own instruments say "moving nose-first, drifting a little left." Same
+        physical motion, different numbers — because each observer measures along their own axes.
+        A robot's end-effector velocity has the same double life: you can write its twist{" "}
+        <M>{"\\mathcal{V}"}</M> (the angular-plus-linear velocity 6-vector from Chapter 3) in the
+        fixed <strong>space frame</strong> <M>{"\\{s\\}"}</M> bolted to the floor, or in the{" "}
+        <strong>body frame</strong> <M>{"\\{b\\}"}</M> riding on the end-effector. Each choice
+        gives its own Jacobian for the same arm:
       </p>
       <Eq>{"\\mathcal{V}_s = J_s(\\theta)\\,\\dot\\theta, \\qquad \\mathcal{V}_b = J_b(\\theta)\\,\\dot\\theta."}</Eq>
+      <p>
+        Read it back: the same joint rates <M>{"\\dot\\theta"}</M> go into both, and both outputs
+        describe the same motion — <M>{"J_s"}</M> just reports it in floor coordinates and{" "}
+        <M>{"J_b"}</M> in hand coordinates. The payoff of this page is that each matrix has a
+        column-by-column geometric reading, and that the two are connected by a single
+        change-of-frame matrix.
+      </p>
 
       <H2>Space Jacobian: displaced by preceding joints</H2>
       <p>
@@ -41,11 +54,28 @@ export default function SpaceBody() {
       </p>
       <Eq>{"J_{s,i}(\\theta) = \\mathrm{Ad}_{e^{[\\mathcal{S}_1]\\theta_1}\\cdots e^{[\\mathcal{S}_{i-1}]\\theta_{i-1}}}(\\mathcal{S}_i), \\qquad J_{s,1} = \\mathcal{S}_1."}</Eq>
       <p>
-        The physical reading (the "frozen rigid body" argument): joints <M>{"i, i+1, \\ldots"}</M>{" "}
-        do not move joint <M>{"i"}</M>'s axis relative to <M>{"\\{s\\}"}</M>, so freeze them. Only the
-        preceding joints relocate the axis, and the adjoint of their combined motion is exactly what
-        transports <M>{"\\mathcal{S}_i"}</M> from home to its current pose. With all preceding joints
-        at zero, the column is simply <M>{"\\mathcal{S}_i"}</M> itself.
+        Don't let the notation intimidate — every symbol is a Chapter 3 friend. Recall that{" "}
+        <M>{"\\mathrm{Ad}_T"}</M>, the <strong>adjoint</strong>, is the 6×6 change-of-frame machine
+        for twists: feed it a screw axis and it returns that axis as seen after the rigid motion{" "}
+        <M>{"T"}</M>. So the formula says, in words: <em>take joint <M>{"i"}</M>'s home screw axis
+        and carry it along with the motion of joints <M>{"1"}</M> through <M>{"i-1"}</M></em>.
+      </p>
+      <p>
+        Why only the <em>preceding</em> joints? This is the "frozen rigid body" argument. Joint{" "}
+        <M>{"i"}</M> spins <em>about</em> its own axis, so it never relocates that axis; and joints{" "}
+        <M>{"i+1, i+2, \\ldots"}</M> live further out on the arm, downstream of the axis, so they
+        can't move it either. Freeze them all. Only joints <M>{"1 \\ldots i-1"}</M> relocate the
+        axis, and the adjoint of their combined motion is exactly what transports{" "}
+        <M>{"\\mathcal{S}_i"}</M> from home to its current pose. With all preceding joints at zero,
+        the column is simply <M>{"\\mathcal{S}_i"}</M> itself.
+      </p>
+      <p>
+        <strong>Try this:</strong> the purple line is joint 3's live axis and the two 6-vector
+        cards compare the live column <M>{"J_{s,3}"}</M> against the home screw{" "}
+        <M>{"\\mathcal{S}_3"}</M>. Wiggle <M>{"\\theta_3"}</M> first — the column doesn't budge,
+        because a joint never moves its own axis. Now wiggle <M>{"\\theta_1"}</M> or{" "}
+        <M>{"\\theta_2"}</M> and watch both the purple line and the column swing. Then drive the
+        two preceding joints to zero and watch the difference readout collapse.
       </p>
 
       <FrozenWidget />
@@ -56,6 +86,15 @@ export default function SpaceBody() {
         <M>{"\\mathcal{B}_i"}</M> carried by the joints that come <em>after</em> it:
       </p>
       <Eq>{"J_{b,i}(\\theta) = \\mathrm{Ad}_{e^{-[\\mathcal{B}_n]\\theta_n}\\cdots e^{-[\\mathcal{B}_{i+1}]\\theta_{i+1}}}(\\mathcal{B}_i), \\qquad J_{b,n} = \\mathcal{B}_n."}</Eq>
+      <p>
+        Read it back with the frozen-body logic flipped around. In the body frame you sit{" "}
+        <em>on the hand</em> and look back down the arm. From that seat, moving joint{" "}
+        <M>{"i"}</M> or anything before it just moves the world — it never changes where joint{" "}
+        <M>{"i"}</M>'s axis sits <em>relative to you</em>. What does change your view of the axis
+        is the joints between it and you: joints <M>{"i+1 \\ldots n"}</M>. Hence the mirror-image
+        formula, with the <em>following</em> joints doing the displacing and the last column always
+        equal to its home value <M>{"\\mathcal{B}_n"}</M>.
+      </p>
 
       <H2>The two are one adjoint apart</H2>
       <p>
@@ -66,8 +105,16 @@ export default function SpaceBody() {
       <p>
         Because the adjoint matrix is always invertible, <M>{"J_s"}</M> and <M>{"J_b"}</M> always
         have the <strong>same rank</strong> — so singularities are a property of the arm, not of which
-        Jacobian you happen to use. The widget verifies the adjoint identity to machine precision for
-        every posture.
+        Jacobian you happen to use. (Rank counts a matrix's independent directions; multiplying by
+        an invertible matrix can rotate and stretch those directions but never destroy one.)
+      </p>
+      <p>
+        <strong>Try this:</strong> scrub all three sliders and watch the two column stacks. The
+        numbers in <M>{"J_s"}</M> and <M>{"J_b"}</M> disagree at every posture — sometimes wildly —
+        yet the error readout <M>{"\\lVert J_s - \\mathrm{Ad}_{T_{sb}}J_b\\rVert"}</M> stays pinned
+        at zero and the two ranks always match. Park <M>{"\\theta_3"}</M> near 0° (elbow straight)
+        and watch <em>both</em> ranks drop to 2 together: the singularity shows up in whichever
+        frame you look from.
       </p>
 
       <AdjointWidget />
@@ -94,17 +141,42 @@ export default function SpaceBody() {
             ],
             explain: <>Multiplying by the invertible <M>{"[\\mathrm{Ad}_{T_{sb}}]"}</M> cannot change rank, so singularities coincide.</>,
           },
+          {
+            prompt: <>With <em>every</em> joint at zero (the home posture), column <M>{"i"}</M> of the space Jacobian equals…</>,
+            options: [
+              { label: "the home screw axis 𝒮ᵢ, unchanged", correct: true },
+              { label: "the zero vector" },
+              { label: "the body screw axis ℬᵢ" },
+            ],
+            explain: <>The displacing adjoint is built from the <em>preceding</em> joints' motion; at home they haven't moved, so <M>{"\\mathrm{Ad}"}</M> is the identity and <M>{"J_{s,i} = \\mathcal{S}_i"}</M>.</>,
+          },
         ]}
       />
 
+      <H2>Traps</H2>
+      <p>
+        <strong>Don't mix frames in one equation.</strong> <M>{"J_s"}</M> and <M>{"J_b"}</M> are
+        different matrices with different numbers; pairing <M>{"J_s"}</M> with a body twist (or
+        feeding <M>{"J_b"}</M>'s output to something expecting space coordinates) silently produces
+        garbage. Convert first with the adjoint, then combine.
+      </p>
+      <p>
+        <strong>A joint never displaces its own column.</strong> The space column <M>{"J_{s,i}"}</M>{" "}
+        depends only on the joints <em>before</em> joint <M>{"i"}</M>; wiggling <M>{"\\theta_i"}</M>{" "}
+        itself leaves it fixed. Mirror-image for the body Jacobian: only the joints <em>after</em>.
+      </p>
+      <p>
+        <strong>Frame-independent facts vs frame-dependent numbers.</strong> Rank, singularities,
+        and which physical motions are possible don't care which Jacobian you use. The individual
+        matrix entries, and anything read off them entry-by-entry, do.
+      </p>
+
       <Aside>
-        <strong>Analytic vs geometric.</strong> If the end-effector is described by a minimal set of
-        coordinates <M>{"q"}</M> (say <M>{"x, y, z"}</M> plus three Euler or exponential-coordinate
-        angles), then <M>{"\\dot q = J_a(\\theta)\\dot\\theta"}</M> defines the{" "}
-        <em>analytic</em> Jacobian. It relates to the geometric body Jacobian through a block matrix
-        that converts the angular-velocity part into the chosen angle-rate representation,{" "}
-        <M>{"J_a = \\begin{bmatrix} A^{-1}(r) & 0 \\\\ 0 & R \\end{bmatrix} J_b"}</M>. Same
-        information, different bookkeeping for the orientation.
+        Elsewhere you may meet the <em>analytic</em> Jacobian, which differentiates a chosen set of
+        pose coordinates (positions plus Euler-style angles) instead of producing a twist. It
+        carries the same information as <M>{"J_b"}</M> — a fixed conversion of the angular part
+        connects them — just different bookkeeping for orientation. Safe to skip until a specific
+        tool hands you one.
       </Aside>
 
       <KeyIdea>

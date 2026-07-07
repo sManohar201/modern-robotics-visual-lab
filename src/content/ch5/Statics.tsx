@@ -2,6 +2,7 @@ import { useState } from "react";
 import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef } from "../../components/prose";
 import { WidgetShell, ControlBar, LabeledSlider, Readout } from "../../components/widgets/WidgetShell";
 import { Challenge } from "../../components/widgets/Challenge";
+import { Quiz } from "../../components/widgets/Quiz";
 import { Scene3D, Triad, PosedGroup } from "../../components/three/Scene3D";
 import { SpatialArm, armState } from "../../components/three/SpatialArm";
 import { PointArrow, AxisArc, ScrewAxisLine } from "../../components/three/viz3d";
@@ -31,13 +32,21 @@ export default function Statics() {
       />
 
       <p>
-        Hold the arm perfectly still and push on its end-effector. What joint torques keep it from
-        moving? Conservation of power answers it. At static equilibrium no power moves the arm, so the
-        power at the joints equals the power at the tip:
+        Hold the arm perfectly still and push on its end-effector. Which motors have to strain, and
+        how hard? Two vocabulary reminders before the answer. The push is a{" "}
+        <strong>wrench</strong> <M>{"\\mathcal{F}"}</M> — Chapter 3's package of a moment and a
+        force in one 6-vector, the force-side twin of a twist. And <M>{"\\tau"}</M> stacks the{" "}
+        <strong>joint torques</strong>, one effort number per motor. Conservation of power connects
+        them: since power is force times velocity, and at equilibrium no power is stored or lost in
+        the arm, the power the motors put in at the joints must equal the power the wrench takes out
+        at the tip — for <em>every</em> possible joint motion <M>{"\\dot\\theta"}</M>:
       </p>
       <Eq>{"\\tau^{\\mathsf T}\\dot\\theta = \\mathcal{F}^{\\mathsf T}\\mathcal{V} = \\mathcal{F}^{\\mathsf T} J(\\theta)\\,\\dot\\theta \\quad\\Longrightarrow\\quad \\boxed{\\;\\tau = J^{\\mathsf T}(\\theta)\\,\\mathcal{F}.\\;}"}</Eq>
       <p>
-        Each joint torque is one column of the Jacobian dotted with the end-effector wrench:{" "}
+        Read the boxed formula back: the <em>same</em> matrix that turned joint speeds into tip
+        velocity now runs in reverse — transposed — turning a tip wrench into joint torques. One
+        matrix, both directions, no new machinery. Concretely, each joint torque is one column of
+        the Jacobian dotted with the end-effector wrench:{" "}
         <M>{"\\tau_i = J_i \\cdot \\mathcal{F}"}</M>. A joint feels a wrench only to the extent the
         wrench lines up with the motion that joint would create. Push exactly along a joint's axis —
         or aim the force straight through it — and that joint feels nothing.
@@ -49,6 +58,13 @@ export default function Statics() {
         wrench is <M>{"\\mathcal{F}_s = (p\\times f,\\; f)"}</M>, and{" "}
         <M>{"\\tau = J_s^{\\mathsf T}\\mathcal{F}_s"}</M>. The arcs in the widget show each joint's
         torque, sized and signed by its value.
+      </p>
+      <p>
+        <strong>Try this:</strong> sweep the force azimuth slowly through a full circle and watch
+        each colored arc grow, shrink, and flip sign — every joint feels the same push differently.
+        Then park the azimuth where the orange base-yaw arc vanishes: at that aim the force line
+        passes through joint 1's vertical axis, so it has no lever arm there. Finally double{" "}
+        <M>{"|f|"}</M> and confirm every torque doubles with it — the map is linear.
       </p>
 
       <PushWidget />
@@ -67,6 +83,14 @@ export default function Statics() {
         no motor torque at all. One actuated direction, a five-dimensional space of freely-resisted
         wrenches.
       </p>
+      <p>
+        <strong>Try this:</strong> set the push direction perpendicular to the door face and watch
+        the hinge torque peak — that is the aim that best fights (or helps) the motor. Now rotate
+        the push until it points along the door, straight at the hinge: the torque needle falls to
+        zero even at full force. Then swing the door open with the angle slider and notice both
+        special directions swing with it — the null space is glued to the mechanism, not to the
+        room.
+      </p>
 
       <DoorWidget />
 
@@ -83,6 +107,64 @@ export default function Statics() {
         <M>{"J^{\\mathsf T}"}</M> cost zero torque — the arm can't push there, but resists there for
         free.
       </KeyIdea>
+
+      <Quiz
+        challengeId="ch5-statics-quiz"
+        goal={<>Answer all three correctly.</>}
+        questions={[
+          {
+            prompt: (
+              <>
+                You push on the end-effector with a force whose line of action passes straight
+                through joint 2's axis. What torque must joint 2's motor supply to hold still?
+              </>
+            ),
+            options: [
+              { label: "Zero — the force has no lever arm about that axis", correct: true },
+              { label: "The full force times the arm's length" },
+              { label: "It depends on what the other joints are doing" },
+            ],
+            explain:
+              "τᵢ = Jᵢ · 𝓕: a joint feels a wrench only to the extent it lines up with the motion that joint creates. A force through the axis produces no moment about it.",
+          },
+          {
+            prompt: (
+              <>
+                To compute the joint torques that balance an end-effector wrench, you need…
+              </>
+            ),
+            options: [
+              { label: "a brand-new force-analysis matrix, derived separately from the velocity Jacobian" },
+              {
+                label: "just the transpose of the same Jacobian from the velocity pages: τ = Jᵀ𝓕",
+                correct: true,
+              },
+              { label: "the inverse of the Jacobian, J⁻¹" },
+            ],
+            explain:
+              "Conservation of power forces velocities and forces to share one matrix. Note it's the transpose, not the inverse — τ = Jᵀ𝓕 works even at singularities.",
+          },
+          {
+            prompt: (
+              <>
+                A wrench <M>{"\\mathcal{F}"}</M> lies in the null space of{" "}
+                <M>{"J^{\\mathsf T}"}</M> (that is, <M>{"J^{\\mathsf T}\\mathcal{F} = 0"}</M>).
+                What does that mean physically?
+              </>
+            ),
+            options: [
+              { label: "The arm accelerates away in that direction" },
+              { label: "The motors must all run at maximum torque to resist it" },
+              {
+                label: "The structure resists it for free — and the arm cannot actively push in that direction either",
+                correct: true,
+              },
+            ],
+            explain:
+              "Zero torque means the load is carried entirely by the links and bearings — the door pushed toward its hinge. Lost pushing ability and free resistance are the same coin, flip sides.",
+          },
+        ]}
+      />
 
       <BookRef>Modern Robotics §5.2 — Statics of Open Chains.</BookRef>
     </div>

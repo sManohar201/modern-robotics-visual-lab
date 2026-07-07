@@ -148,7 +148,7 @@ function SpringOscillator() {
       <WidgetShell
         title="Damped spring-mass oscillator"
         onReset={reset}
-        caption="Left: the mass on its meter ruler, released from x₀ = 1.2 m; the blue arrow is its live velocity. Right: x(t) with a time axis in seconds and a ±1 m scale. The dashed grey curves are the decay envelope ±x₀e^(−ζω₀t) — the trace rings inside it when underdamped. The card names the current regime live."
+        caption="Left: the mass on its meter ruler, released from x₀ = 1.2 m; the blue arrow is its live velocity. Right: x(t) with a time axis in seconds and a ±1 m scale. The dashed gold curves are the decay envelope ±x₀e^(−ζω₀t) — the trace rings inside them when underdamped. The card lists the three damping regimes in their colors and highlights the one you are in."
       >
         <svg viewBox={`0 0 ${W} ${H}`} className="block w-full rounded-lg bg-[#fbfaf7]">
           <OscArrowDefs />
@@ -193,15 +193,24 @@ function SpringOscillator() {
           {/* live position marker on the ruler */}
           <circle cx={clamp(massX, eqX - 1.6 * PXM, eqX + 1.6 * PXM)} cy={232} r={4} fill={PURPLE} stroke="#fff" strokeWidth={1.5} />
 
-          {/* regime card — names the current damping regime live */}
-          <rect x={16} y={14} width={200} height={64} rx={9} fill="#ffffff" opacity={0.9} stroke="#d8d4c8" />
-          <text x={28} y={36} className="ui text-[12.5px] font-bold" fill={regimeColor}>{regime}</text>
-          <text x={28} y={56} className="ui text-[11.5px]" fill="#4b4b5e">
+          {/* regime legend card — all three damping regimes, live one highlighted */}
+          <rect x={16} y={14} width={228} height={96} rx={9} fill="#ffffff" opacity={0.9} stroke="#d8d4c8" />
+          <text x={28} y={32} className="ui text-[12px] font-bold" fill={regimeColor}>{regime}</text>
+          <text x={28} y={47} className="ui text-[10.5px]" fill="#4b4b5e">
             ζ = {zeta.toFixed(3)} · ω₀ = {omega0.toFixed(2)} rad/s
           </text>
-          <text x={28} y={71} className="ui text-[10px]" fill="#8a8a9b">
-            {zeta < 0.98 ? "overshoots and rings" : zeta <= 1.02 ? "fastest return, no overshoot" : "oozes home slowly"}
-          </text>
+          {[
+            { c: PURPLE, t: "ζ < 1 underdamped — rings", on: zeta < 0.98 },
+            { c: GREEN, t: "ζ ≈ 1 critical — fastest, no overshoot", on: zeta >= 0.98 && zeta <= 1.02 },
+            { c: ORANGE, t: "ζ > 1 overdamped — oozes home", on: zeta > 1.02 },
+          ].map((r, i) => (
+            <g key={i}>
+              <circle cx={33} cy={59 + i * 16} r={4} fill={r.c} opacity={r.on ? 1 : 0.35} />
+              <text x={43} y={63 + i * 16} className="ui text-[10px]" fill={r.on ? "#2b2b3a" : "#9a97a8"} fontWeight={r.on ? 700 : 400}>
+                {r.t}
+              </text>
+            </g>
+          ))}
 
           {/* x(t) plot in a white card */}
           <rect x={plotX0 - 8} y={plotY0 - 8} width={plotW + 16} height={plotH + 16} rx={9} fill="#ffffff" opacity={0.9} stroke="#d8d4c8" />
@@ -214,11 +223,11 @@ function SpringOscillator() {
           ))}
           {/* zero line */}
           <line x1={plotX0} y1={plotMid} x2={plotX0 + plotW} y2={plotMid} stroke="#cfcabc" strokeWidth={1.4} />
-          {/* decay envelope (underdamped regime) */}
+          {/* decay envelope (underdamped regime) — gold, tied to the ±x₀e^(−ζω₀t) claim */}
           {zeta < 1 && (
             <>
-              <path d={envSeg(1)} fill="none" stroke="#9e9e9e" strokeWidth={1.3} strokeDasharray="4 4" opacity={0.85} />
-              <path d={envSeg(-1)} fill="none" stroke="#9e9e9e" strokeWidth={1.3} strokeDasharray="4 4" opacity={0.85} />
+              <path d={envSeg(1)} fill="none" stroke={GOLD} strokeWidth={1.5} strokeDasharray="4 4" opacity={0.9} />
+              <path d={envSeg(-1)} fill="none" stroke={GOLD} strokeWidth={1.5} strokeDasharray="4 4" opacity={0.9} />
             </>
           )}
           {/* legend */}
@@ -227,7 +236,7 @@ function SpringOscillator() {
             <text x={plotX0 + 93} y={plotY0 + 16} className="text-[10.5px]" fill="var(--ink-soft)">x(t)</text>
             {zeta < 1 && (
               <>
-                <line x1={plotX0 + 128} y1={plotY0 + 12} x2={plotX0 + 146} y2={plotY0 + 12} stroke="#9e9e9e" strokeWidth={1.5} strokeDasharray="4 3" />
+                <line x1={plotX0 + 128} y1={plotY0 + 12} x2={plotX0 + 146} y2={plotY0 + 12} stroke={GOLD} strokeWidth={1.5} strokeDasharray="4 3" />
                 <text x={plotX0 + 151} y={plotY0 + 16} className="text-[10.5px]" fill="var(--ink-soft)">±x₀e^(−ζω₀t)</text>
               </>
             )}
@@ -642,7 +651,7 @@ export default function Oscillations() {
       <p>
         <strong>Try this:</strong> press play with the default (underdamped) settings and count
         the overshoots in the x(t) trace — notice the trace rings <em>inside</em> the dashed
-        grey envelope. Then raise <M>{"b"}</M> until the wiggles just disappear — you have
+        gold envelope. Then raise <M>{"b"}</M> until the wiggles just disappear — you have
         found critical damping by eye; check the ζ readout and the regime card. Push{" "}
         <M>{"b"}</M> far beyond it and notice settling gets <em>slower</em> again: too much
         damping is as bad as too little, which is precisely the tuning dilemma every robot

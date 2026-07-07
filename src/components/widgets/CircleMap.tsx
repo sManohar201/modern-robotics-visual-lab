@@ -24,10 +24,9 @@ const GOLD = "#b08c1d";
 
 const W = 760;
 const H = 430;
-const S = 72; // px per unit
+const S_DEFAULT = 72; // px per unit
 const CX = W / 2;
 const CY = H / 2;
-const px = (x: number, y: number): [number, number] => [CX + x * S, CY - y * S];
 
 function analyze(m: Mat2): CircleMapInfo {
   const [a, b, c, d] = m;
@@ -137,6 +136,8 @@ export function CircleMap({
   outputLabel = "its image",
   caption,
   onState,
+  unitPx = S_DEFAULT,
+  sliderRange = 2,
 }: {
   title?: string;
   initial?: Mat2;
@@ -146,7 +147,13 @@ export function CircleMap({
   outputLabel?: string;
   caption?: ReactNode;
   onState?: (info: CircleMapInfo) => void;
+  /** pixels per unit — shrink for matrices with large entries so the ellipse stays on canvas */
+  unitPx?: number;
+  /** slider half-range for the four entries */
+  sliderRange?: number;
 }) {
+  const S = unitPx;
+  const px = (x: number, y: number): [number, number] => [CX + x * S, CY - y * S];
   const [m, setM] = useState<Mat2>(initial);
   const info = useMemo(() => analyze(m), [m]);
 
@@ -171,7 +178,8 @@ export function CircleMap({
       pts.push(`${sx.toFixed(1)},${sy.toFixed(1)}`);
     }
     return pts.join(" ");
-  }, [a, b, c, d]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [a, b, c, d, S]);
 
   // image of a few grid lines, to show the whole plane deforming
   const gridImages = useMemo(() => {
@@ -193,7 +201,8 @@ export function CircleMap({
       lines.push(seg(-2.4, k, 2.4, k));
     }
     return lines;
-  }, [a, b, c, d]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [a, b, c, d, S]);
 
   const e1Tip = px(a, c);
   const e2Tip = px(b, d);
@@ -283,10 +292,10 @@ export function CircleMap({
         )}
       </svg>
       <ControlBar>
-        <LabeledSlider label="a" value={a} min={-2} max={2} step={0.01} onChange={setEntry(0)} width={110} color={AX_X} />
-        <LabeledSlider label="b" value={b} min={-2} max={2} step={0.01} onChange={setEntry(1)} width={110} color={AX_Y} />
-        <LabeledSlider label="c" value={c} min={-2} max={2} step={0.01} onChange={setEntry(2)} width={110} color={AX_X} />
-        <LabeledSlider label="d" value={d} min={-2} max={2} step={0.01} onChange={setEntry(3)} width={110} color={AX_Y} />
+        <LabeledSlider label="a" value={a} min={-sliderRange} max={sliderRange} step={0.01} onChange={setEntry(0)} width={110} color={AX_X} />
+        <LabeledSlider label="b" value={b} min={-sliderRange} max={sliderRange} step={0.01} onChange={setEntry(1)} width={110} color={AX_Y} />
+        <LabeledSlider label="c" value={c} min={-sliderRange} max={sliderRange} step={0.01} onChange={setEntry(2)} width={110} color={AX_X} />
+        <LabeledSlider label="d" value={d} min={-sliderRange} max={sliderRange} step={0.01} onChange={setEntry(3)} width={110} color={AX_Y} />
       </ControlBar>
       <ControlBar>
         {presets.map(p => (

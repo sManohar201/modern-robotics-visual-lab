@@ -84,7 +84,8 @@ function Collision1D() {
   const hw2 = 0.3 + 0.05 * m2;
   const X1_0 = -3.9;
   const X2_0 = 2.9;
-  const [sim, setSim] = useState({ x1: X1_0, x2: X2_0, t: 0, collided: false, xc: 0, done: false });
+  type Trail = { x1: number; x2: number; xc: number };
+  const [sim, setSim] = useState({ x1: X1_0, x2: X2_0, t: 0, collided: false, xc: 0, done: false, trail: [] as Trail[], sAcc: 0 });
 
   // Collision outcome: conservation of momentum + restitution
   const v1f = ((m1 - e * m2) * v1i + (1 + e) * m2 * v2i) / (m1 + m2);
@@ -105,7 +106,7 @@ function Collision1D() {
   // any slider change re-arms the experiment
   useEffect(() => {
     setRunning(false);
-    setSim({ x1: X1_0, x2: X2_0, t: 0, collided: false, xc: 0, done: false });
+    setSim({ x1: X1_0, x2: X2_0, t: 0, collided: false, xc: 0, done: false, trail: [], sAcc: 0 });
   }, [m1, m2, v1i, v2i, e]);
 
   useRaf(running, dt => {
@@ -128,7 +129,14 @@ function Collision1D() {
       const w1 = collided ? v1f : v1i;
       const w2 = collided ? v2f : v2i;
       const done = t > 9 || ((gone(x1) || Math.abs(w1) < 0.02) && (gone(x2) || Math.abs(w2) < 0.02));
-      return { x1, x2, t, collided, xc, done };
+      // equal-time strobe ghosts every 0.35 s: spacing shows speed at a glance
+      let sAcc = s.sAcc + dt;
+      let trail = s.trail;
+      if (sAcc >= 0.35) {
+        sAcc -= 0.35;
+        trail = [...trail, { x1, x2, xc: (m1 * x1 + m2 * x2) / (m1 + m2) }].slice(-40);
+      }
+      return { x1, x2, t, collided, xc, done, trail, sAcc };
     });
   });
 
@@ -138,7 +146,7 @@ function Collision1D() {
 
   function launch() {
     if (running) { setRunning(false); return; }
-    if (sim.done || sim.collided) setSim({ x1: X1_0, x2: X2_0, t: 0, collided: false, xc: 0, done: false });
+    if (sim.done || sim.collided) setSim({ x1: X1_0, x2: X2_0, t: 0, collided: false, xc: 0, done: false, trail: [], sAcc: 0 });
     setRunning(true);
   }
 
@@ -195,8 +203,8 @@ function Collision1D() {
     <>
       <WidgetShell
         title="1D collision sandbox"
-        onReset={() => { setM1(3); setM2(5); setV1i(4); setV2i(-1); setE(0.7); setRunning(false); setSim({ x1: X1_0, x2: X2_0, t: 0, collided: false, xc: 0, done: false }); }}
-        caption="Press play to run the collision. Velocity arrows scale with speed; the gold ◆ is the center of mass, which sails at one constant velocity straight through the impact. Below, the momentum bars (left) balance exactly before and after — that is the conservation law — while the kinetic-energy bars (right) reveal the loss whenever e < 1."
+        onReset={() => { setM1(3); setM2(5); setV1i(4); setV2i(-1); setE(0.7); setRunning(false); setSim({ x1: X1_0, x2: X2_0, t: 0, collided: false, xc: 0, done: false, trail: [], sAcc: 0 }); }}
+        caption="Press play to run the collision. Velocity arrows scale with speed, and the faint ghost dots are equal-time strobes (0.35 s apart) — wide spacing means fast, tight spacing means slow. The gold ◆ is the center of mass, which sails at one constant velocity straight through the impact (its strobe diamonds stay evenly spaced). Below, the momentum bars (left) balance exactly before and after — that is the conservation law — while the kinetic-energy bars (right) reveal the loss whenever e < 1."
       >
         <svg viewBox={`0 0 ${W} ${HC}`} className="block w-full rounded-lg bg-[#fbfaf7]">
           <ArrowDefsM />
@@ -213,6 +221,26 @@ function Collision1D() {
               <text x={X(sim.xc)} y={50} textAnchor="middle" className="ui text-[10.5px] font-semibold" fill="#8a6d12">impact</text>
             </g>
           )}
+
+          {/* restitution legend: where this collision sits on the stick↔bounce scale */}
+          <g className="ui">
+            <rect x={24} y={16} width={196} height={62} rx={9} fill="#ffffff" opacity={0.92} stroke="#d8d4c8" />
+            <text x={36} y={34} className="text-[11px] font-semibold" fill="var(--ink-soft)">restitution e = {e.toFixed(2)}</text>
+            <rect x={36} y={42} width={172} height={7} rx={3.5} fill="#eceadf" stroke="#d8d4c8" strokeWidth={0.8} />
+            <rect x={36} y={42} width={Math.max(172 * e, 0.001)} height={7} rx={3.5} fill={GOLD} opacity={0.55} />
+            <path d={`M ${36 + 172 * e} 41 l -4.5 -7 l 9 0 Z`} fill={GOLD} />
+            <text x={36} y={68} className="text-[9px]" fill="var(--ink-faint)">0 · sticks</text>
+            <text x={208} y={68} textAnchor="end" className="text-[9px]" fill="var(--ink-faint)">1 · elastic</text>
+          </g>
+
+          {/* equal-time strobe ghosts (0.35 s apart) — spacing reads as speed */}
+          {sim.trail.map((p, i) => (
+            <g key={i} opacity={0.32}>
+              <circle cx={X(p.x1)} cy={trackY - 24} r={3.2} fill={PURPLE} />
+              <circle cx={X(p.x2)} cy={trackY - 24} r={3.2} fill={ORANGE} />
+              <path d={`M ${X(p.xc)} ${trackY + 32} l 4.5 5 l -4.5 5 l -4.5 -5 Z`} fill={GOLD} />
+            </g>
+          ))}
 
           {/* velocity arrows on separate lines so labels never collide */}
           {arrow(X(sim.x2), 76, v2, ORANGE, "mp-arr-o")}

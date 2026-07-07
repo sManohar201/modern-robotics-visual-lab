@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef } from "../../components/prose";
 import { WidgetShell, LabeledSlider, WidgetButton, Readout } from "../../components/widgets/WidgetShell";
 import { Challenge } from "../../components/widgets/Challenge";
+import { Quiz } from "../../components/widgets/Quiz";
 
 // ---- single-joint plant (Modern Robotics §11.4.1) -------------------------
 // tau = I*thetaddot + m g r cos(theta) + b*thetadot
@@ -134,22 +135,44 @@ export default function PidControl() {
       />
 
       <p>
-        Consider a single revolute joint carrying a link in gravity. With motor torque{" "}
-        <M>{"\\tau"}</M>, the dynamics are the familiar pendulum plus viscous friction
-        (Modern Robotics Eq. 11.21):
+        Imagine you are handed a joystick wired straight to a motor's torque, and given one job:
+        swing the link to a marked angle and hold it there. All you can see is the{" "}
+        <strong>error</strong> — how far the link still is from the target. What strategy do you
+        play? Probably three instincts at once: <em>push harder the farther away you are</em>;{" "}
+        <em>ease off when you're closing in fast</em>, so you don't sail past; and{" "}
+        <em>if you've been stuck a little short for a while, lean in a bit extra</em> until the
+        link finally sits on the mark. Those three instincts, written as math, are P, D, and I —
+        the entire controller on this page.
+      </p>
+      <p>
+        First, the arm you're driving. It is a single revolute joint carrying a link in gravity:
+        with motor torque <M>{"\\tau"}</M>, the dynamics are the familiar pendulum plus viscous
+        friction (Modern Robotics Eq. 11.21):
       </p>
       <Eq>{"\\tau = I\\,\\ddot\\theta + mgr\\cos\\theta + b\\,\\dot\\theta."}</Eq>
       <p>
-        The job of the controller is to drive the actual angle <M>{"\\theta"}</M> to a desired
-        setpoint <M>{"\\theta_d"}</M>. We define the error <M>{"\\theta_e = \\theta_d - \\theta"}</M> and
-        feed it through a <strong>proportional–integral–derivative</strong> law:
+        Read it back: whatever torque you supply is spent three ways — accelerating the link's
+        inertia <M>{"I"}</M>, fighting the gravity torque <M>{"mgr\\cos\\theta"}</M> (largest when
+        the link is horizontal, zero when it points straight up or down), and overcoming friction
+        that grows with speed. Note the sting in the middle term: to hold still anywhere but
+        hanging straight down, the motor must keep paying the gravity torque <em>forever</em>.
+      </p>
+      <p>
+        The controller's job is to drive the actual angle <M>{"\\theta"}</M> to a desired
+        setpoint <M>{"\\theta_d"}</M>. We define the error{" "}
+        <M>{"\\theta_e = \\theta_d - \\theta"}</M> and feed it through a{" "}
+        <strong>proportional–integral–derivative</strong> (PID) law:
       </p>
       <Eq>{"\\tau = K_p\\,\\theta_e + K_i\\!\\int_0^t \\theta_e\\,dt + K_d\\,\\dot\\theta_e."}</Eq>
       <p>
-        The proportional gain <M>{"K_p"}</M> acts as a virtual spring pulling toward the goal;
-        the derivative gain <M>{"K_d"}</M> is a virtual damper that fights overshoot; and the
-        integral gain <M>{"K_i"}</M> slowly accumulates the leftover error so it can supply the
-        constant torque that holds the link against gravity.
+        Read it back term by term. The proportional gain <M>{"K_p"}</M> multiplies the error
+        itself: a virtual spring pulling toward the goal, harder the farther away — that is
+        "push harder the farther you are." The derivative gain <M>{"K_d"}</M> multiplies the
+        error's <em>rate of change</em>: a virtual damper that resists fast approach — "ease off
+        when closing quickly." And the integral gain <M>{"K_i"}</M> multiplies the error's
+        running total over time: a patient memory that keeps growing while the link sits short,
+        until it supplies the standing torque that holds the link against gravity — "lean in if
+        you've been short for a while."
       </p>
 
       <H2>Why P-only control leaves an offset</H2>
@@ -164,13 +187,41 @@ export default function PidControl() {
 
       <H2>Tuning the transient</H2>
       <p>
-        For PD setpoint control on a horizontal joint the error obeys the standard second-order
-        form <M>{"\\ddot\\theta_e + 2\\zeta\\omega_n\\dot\\theta_e + \\omega_n^2\\theta_e = 0"}</M> with
+        Here is the payoff of the spring-and-damper picture: on a horizontal joint (where gravity
+        drops out), PD control turns the error into <em>exactly</em> the mass–spring–damper
+        system you met in physics. <M>{"K_p"}</M> plays the spring constant and{" "}
+        <M>{"b + K_d"}</M> plays the damping. Two numbers summarize any such system: its{" "}
+        <strong>natural frequency</strong> — how fast it wants to oscillate, written{" "}
+        <M>{"\\omega_n"}</M> — and its <strong>damping ratio</strong> — how thoroughly the wobble
+        is smothered, written <M>{"\\zeta"}</M>, with <M>{"\\zeta = 1"}</M> the sweet spot: the
+        fastest landing that never bounces. For PD setpoint control the error obeys the standard
+        second-order form{" "}
+        <M>{"\\ddot\\theta_e + 2\\zeta\\omega_n\\dot\\theta_e + \\omega_n^2\\theta_e = 0"}</M> with
       </p>
       <Eq>{"\\omega_n = \\sqrt{K_p/I},\\qquad \\zeta = \\frac{b + K_d}{2\\sqrt{K_p\\,I}}."}</Eq>
       <p>
-        Too little <M>{"K_d"}</M> (<M>{"\\zeta < 1"}</M>) and the response rings; at{" "}
-        <M>{"\\zeta = 1"}</M> it is critically damped — fastest with no overshoot.
+        Read it back: a stiffer spring (bigger <M>{"K_p"}</M>) makes the joint snappier but, with
+        the damping unchanged, <em>less</em> damped — <M>{"K_p"}</M> sits in the denominator of{" "}
+        <M>{"\\zeta"}</M>. Too little <M>{"K_d"}</M> (<M>{"\\zeta < 1"}</M>) and the response
+        rings past the target and back; at <M>{"\\zeta = 1"}</M> it is critically damped —
+        fastest with no overshoot.
+      </p>
+      <Aside>
+        If damped oscillators are new (or rusty), the{" "}
+        <a href="#/phys6-oscillations">Physics 6 · Oscillations module</a> shows underdamped,
+        critically damped, and overdamped responses side by side, with the same{" "}
+        <M>{"\\omega_n"}</M> and <M>{"\\zeta"}</M> vocabulary. This page is the same mathematics
+        wearing a robot suit.
+      </Aside>
+
+      <p>
+        <strong>Try this:</strong> press Run with the defaults (<M>{"K_i = 0"}</M>) and watch the
+        link stall just below the target — the steady-state <M>{"|e|"}</M> readout stays red no
+        matter how long you wait, because the spring must stay stretched to balance gravity. Now
+        raise <M>{"K_i"}</M> to about 10 and watch the link creep the rest of the way onto the
+        goal as the integral accumulates. Finally drop <M>{"K_d"}</M> to 0 and hit Restart: the
+        link rings back and forth past the target — check that the ζ readout has fallen well
+        below 1.
       </p>
 
       <WidgetShell
@@ -262,12 +313,96 @@ export default function PidControl() {
         joint is at rest.
       </Challenge>
 
+      <H2>Traps</H2>
+      <ul>
+        <li>
+          <strong>More <M>{"K_p"}</M> is not a substitute for <M>{"K_i"}</M>.</strong> Cranking
+          the spring shrinks the gravity offset like <M>{"1/K_p"}</M>, but it never reaches zero
+          — and the price of a very stiff spring is ringing and overshoot. Only integral action
+          removes the offset exactly.
+        </li>
+        <li>
+          <strong>Integral action is slow, and it can wind up.</strong> The integral only grows
+          as error <em>persists</em>, so it fixes offsets, not transients. Worse, if the motor
+          saturates or the joint is physically blocked, the integral keeps accumulating the whole
+          time — and then dumps that stored torque as a huge overshoot when the joint comes free.
+          Real controllers clamp the integral ("anti-windup").
+        </li>
+        <li>
+          <strong>The derivative term acts on a measurement.</strong>{" "}
+          <M>{"K_d\\,\\dot\\theta_e"}</M> needs the joint velocity, and encoders are noisy —
+          differentiating noise produces jittery torque. Real implementations filter the velocity
+          signal before feeding it to <M>{"K_d"}</M>.
+        </li>
+        <li>
+          <strong>The <M>{"\\zeta"}</M> formula is exact only for the gravity-free, linearized
+          joint.</strong> Gravity's <M>{"\\cos\\theta"}</M> makes the true response depend on the
+          setpoint — the same gains land differently at 34° than at 69°. Try both step buttons in
+          the widget and compare.
+        </li>
+      </ul>
+
       <KeyIdea>
         Proportional gain is a spring, derivative a damper, integral a memory. On a joint fighting
         gravity, P-only control always leaves an offset; only the integral term supplies the
         standing torque needed to settle exactly on target — and derivative gain is what keeps that
         landing free of overshoot.
       </KeyIdea>
+
+      <Quiz
+        challengeId="ch11-pid-quiz"
+        goal={<>Answer all three correctly.</>}
+        questions={[
+          {
+            prompt: (
+              <>
+                A PD controller (no integral term) holds a link against gravity. Why does it
+                always settle a little short of the setpoint?
+              </>
+            ),
+            options: [
+              {
+                label:
+                  "At rest the spring torque Kp·θe must balance gravity, and that takes a nonzero error",
+                correct: true,
+              },
+              { label: "Friction eats part of the commanded torque, so some error is inevitable" },
+              { label: "Kp was simply set too small — a large enough Kp removes the offset entirely" },
+            ],
+            explain:
+              "With θ̇ = 0 the only torque left is Kp·θe, and it must equal mgr·cosθ. Bigger Kp shrinks the required error but can never make it zero.",
+          },
+          {
+            prompt: (
+              <>
+                Your joint reaches the setpoint but overshoots and rings back and forth several
+                times first. Which gain do you reach for?
+              </>
+            ),
+            options: [
+              { label: "Raise Kp — more spring pulls it onto the target faster" },
+              { label: "Raise Kd — it is the damper, and ringing means ζ < 1", correct: true },
+              { label: "Raise Ki — the integral will smooth out the wiggles" },
+            ],
+            explain:
+              "Ringing is underdamping. Kd adds damping and pushes ζ toward 1; more Kp or Ki makes the ringing worse.",
+          },
+          {
+            prompt: <>At steady state, exactly on target, what is the integral term doing?</>,
+            options: [
+              { label: "Nothing — the error is zero, so all three terms are zero" },
+              { label: "Speeding up the response to the next setpoint change" },
+              {
+                label:
+                  "Supplying a constant holding torque it accumulated from past error — that's what cancels gravity",
+                correct: true,
+              },
+            ],
+            explain:
+              "The P and D terms vanish when the error and velocity are zero, but the integral remembers the past: its accumulated value keeps paying the gravity torque forever.",
+          },
+        ]}
+      />
 
       <BookRef>Modern Robotics §11.2–11.4 — Error dynamics and PID control (Eqs. 11.8, 11.21, 11.23, 11.30).</BookRef>
     </div>

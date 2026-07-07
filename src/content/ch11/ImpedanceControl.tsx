@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef } from "../../components/prose";
 import { WidgetShell, LabeledSlider, WidgetButton, Readout } from "../../components/widgets/WidgetShell";
 import { Challenge } from "../../components/widgets/Challenge";
+import { Quiz } from "../../components/widgets/Quiz";
 
 // ---- 1-DOF impedance-controlled end-effector pressing a virtual wall ------
 // Rendered behavior:  M xddot + B xdot + K (x - x_cmd) = -f_wall
@@ -119,33 +120,71 @@ export default function ImpedanceControl() {
       />
 
       <p>
-        Pure motion control demands <em>high</em> impedance: the end-effector resists any force that
-        tries to move it. That is exactly wrong for contact tasks — pressing too rigidly into a stiff
-        surface produces enormous forces from a tiny position error. Impedance control instead asks
-        the end-effector to render a target mass–spring–damper relationship between motion and force
-        (Modern Robotics Eq. 11.64):
+        Push on a brick wall: it doesn't budge, and every extra millimeter you try to gain costs
+        enormous force. Push on a foam mattress: it yields softly. Now push on a friend's
+        outstretched arm — relaxed, it gives; tensed, it feels rigid. Same limb, different feel,
+        switched on demand. That property has a name: <strong>impedance</strong> — how something
+        feels when you push on it; how much force it fights back with per bit of motion you
+        impose. A person retunes their arm's impedance with muscle tension. Impedance control
+        gives a robot the same knob, in software.
+      </p>
+      <p>
+        Pure motion control deliberately makes the robot feel like the brick wall — high
+        impedance, resisting any force that tries to move it. That is exactly wrong for contact
+        tasks: press a rigid position-controlled tool into a stiff surface, and a tiny position
+        error produces an enormous force. Impedance control instead asks the motors to{" "}
+        <em>fake</em> a mass–spring–damper of our choosing, so the relationship between motion
+        and force at the end-effector is whatever we program (Modern Robotics Eq. 11.64):
       </p>
       <Eq>{"M\\,\\ddot{x} + B\\,\\dot{x} + K\\,x = f_{\\text{ext}}."}</Eq>
       <p>
-        Here <M>{"K"}</M> is the rendered <strong>stiffness</strong>, <M>{"B"}</M> the rendered
-        damping, and <M>{"M"}</M> the rendered mass. Loosely, the robot has high impedance if{" "}
-        <M>{"K"}</M> or <M>{"B"}</M> is large, and low impedance if both are small. A good force
-        controller is low-impedance: small motion disturbances make only small force changes.
+        Read it back: an external force <M>{"f_{\\text{ext}}"}</M> pushing on the end-effector
+        meets three programmed resistances. The rendered <strong>stiffness</strong> <M>{"K"}</M>{" "}
+        fights being <em>displaced</em>; the rendered damping <M>{"B"}</M> fights moving{" "}
+        <em>fast</em>; the rendered mass <M>{"M"}</M> fights being <em>shoved into motion</em>.
+        Large <M>{"K"}</M> or <M>{"B"}</M> is high impedance — the brick wall. Small everything
+        is low impedance — the mattress. A good force controller is low-impedance: small motion
+        disturbances then make only small force changes.
       </p>
 
       <H2>Pressing into a stiff wall</H2>
       <p>
-        Model the environment as a very stiff one-sided spring at the wall surface: once the commanded
-        position <M>{"x_{\\text{cmd}}"}</M> is driven past the wall, the rendered spring{" "}
-        <M>{"K"}</M> pulls the end-effector inward while the wall pushes back. In steady contact the
-        two balance, so the contact force is
+        Model the environment as a very stiff one-sided spring of stiffness{" "}
+        <M>{"K_{\\text{wall}}"}</M> sitting at the wall surface, and command the end-effector to
+        a position a depth <M>{"d"}</M> <em>past</em> that surface. The tool ends up pinched
+        between <em>two springs</em>: the robot's rendered spring stretched behind it (pulling it
+        inward toward the command) and the wall's spring compressed in front of it (pushing it
+        back out). In steady contact nothing moves, so the same force <M>{"f"}</M> flows through
+        both springs:
       </p>
-      <Eq>{"f_{\\text{contact}} \\approx \\frac{K\\,K_{\\text{wall}}}{K + K_{\\text{wall}}}\\,d \\;\\xrightarrow[\\;K_{\\text{wall}}\\gg K\\;]{}\\; K\\,d,"}</Eq>
+      <Eq>{"f = K\\,\\delta_r = K_{\\text{wall}}\\,\\delta_w,"}</Eq>
       <p>
-        where <M>{"d"}</M> is the commanded penetration depth. The crucial lesson: for a stiff wall
-        the steady contact force is set by the <strong>rendered</strong> stiffness{" "}
-        <M>{"K"}</M>, not the wall's. Render a soft spring and you can press in confidently while the
-        force stays gentle.
+        where <M>{"\\delta_r"}</M> is how far the rendered spring stays stretched and{" "}
+        <M>{"\\delta_w"}</M> how far the wall is dented. And the commanded depth is split between
+        those two deflections — whatever the wall doesn't give, the rendered spring must:
+      </p>
+      <Eq>{"d = \\delta_r + \\delta_w."}</Eq>
+      <p>
+        Two equations, two unknowns. Substitute <M>{"\\delta_r = f/K"}</M> and{" "}
+        <M>{"\\delta_w = f/K_{\\text{wall}}"}</M> into the second and solve for <M>{"f"}</M>:
+      </p>
+      <Eq>{"f_{\\text{contact}} = \\frac{K\\,K_{\\text{wall}}}{K + K_{\\text{wall}}}\\,d \\;\\xrightarrow[\\;K_{\\text{wall}}\\gg K\\;]{}\\; K\\,d."}</Eq>
+      <p>
+        Read it back: the fraction is the classic stiffness of two springs in series — always{" "}
+        <em>softer</em> than either spring alone (a sanity check you can feel: two slinkies
+        end-to-end stretch more easily than one). The softer spring dominates the pair. So
+        against a wall much stiffer than the robot, the steady contact force settles at{" "}
+        <M>{"K\\,d"}</M> — set entirely by the <strong>rendered</strong> stiffness, not the
+        wall's. Render a soft spring and you can press in confidently while the force stays
+        gentle.
+      </p>
+
+      <p>
+        <strong>Try this:</strong> press Engage at the default <M>{"K = 150"}</M>&nbsp;N/m and
+        compare the settled contact-force readout with the <M>{"K\\cdot d"}</M> prediction — they
+        should agree. Retract, crank <M>{"K"}</M> to 1500, and Engage again: the peak force
+        spikes past the fragile-object line on the plot. Now drop <M>{"K"}</M> to about 60, raise{" "}
+        <M>{"B"}</M> a little, and re-engage — solid contact, gentle force.
       </p>
 
       <WidgetShell
@@ -240,12 +279,96 @@ export default function ImpedanceControl() {
         spring is soft even as you press in.
       </Challenge>
 
+      <H2>Traps</H2>
+      <ul>
+        <li>
+          <strong>High impedance is right for motion; low impedance is right for force.</strong>{" "}
+          The two goals are opposed — rigid tracking rejects disturbances but slams into
+          surfaces; a soft render touches gently but tracks sloppily. You choose per task, or
+          even per <em>direction</em> (stiff along the surface, soft into it — hybrid control).
+        </li>
+        <li>
+          <strong>The impact spike is a velocity-and-damping story, not a stiffness one.</strong>{" "}
+          Even a very soft rendered spring slams the wall if the tool flies in fast with tiny{" "}
+          <M>{"B"}</M> — the series-spring formula only governs the <em>steady</em> force. Watch
+          the transient spike in the plot when you engage with low damping.
+        </li>
+        <li>
+          <strong>Rendered is not real.</strong> The spring–damper is synthesized by motors
+          running a control loop. Outside their bandwidth and torque limits — very fast impacts,
+          very stiff renders — the illusion breaks and the mechanism's own hardware dynamics show
+          through.
+        </li>
+        <li>
+          <strong>You can't out-stiffen the mechanism.</strong> Rendering a huge <M>{"K"}</M>{" "}
+          just re-creates the rigid position-controller and its force-spike problem — with the
+          added risk of instability against a stiff environment. If you wanted a brick wall, you
+          didn't need impedance control.
+        </li>
+      </ul>
+
       <KeyIdea>
         Impedance control programs the relationship between motion and force. Against a stiff
         environment the steady contact force is governed by the robot's <em>rendered</em> stiffness,
         not the wall's — so a soft virtual spring lets the robot touch delicate things gently while
         still making solid contact.
       </KeyIdea>
+
+      <Quiz
+        challengeId="ch11-imp-quiz"
+        goal={<>Answer all three correctly.</>}
+        questions={[
+          {
+            prompt: (
+              <>
+                A robot renders stiffness <M>{"K"}</M> and is commanded <M>{"d = 10"}</M>&nbsp;mm
+                past the surface of a wall far stiffer than <M>{"K"}</M>. The steady contact force
+                is about…
+              </>
+            ),
+            options: [
+              { label: "K_wall · d — the wall's stiffness is what actually pushes back" },
+              { label: "K · d — the robot's rendered stiffness sets it", correct: true },
+              { label: "(K + K_wall) · d — the two stiffnesses add" },
+            ],
+            explain:
+              "Springs in series: the softer one dominates. With K_wall ≫ K, the series stiffness K·K_wall/(K+K_wall) ≈ K, so f ≈ K·d.",
+          },
+          {
+            prompt: (
+              <>
+                You must make contact with a fragile part without cracking it. Do you raise or
+                lower the rendered stiffness?
+              </>
+            ),
+            options: [
+              { label: "Raise it — a stiff tool is more precise, so it won't overshoot into the part" },
+              {
+                label:
+                  "Lower it — the same commanded depth then produces less force, and position errors cost little force",
+                correct: true,
+              },
+              { label: "Stiffness doesn't matter; only the commanded depth does" },
+            ],
+            explain:
+              "The steady force is ≈ K·d, so soft K means gentle contact even when you deliberately command past the surface — exactly the widget's fragile-object challenge.",
+          },
+          {
+            prompt: <>What does an impedance controller actually program?</>,
+            options: [
+              { label: "A force setpoint the end-effector will exert no matter what" },
+              { label: "A position setpoint the end-effector will reach no matter what" },
+              {
+                label:
+                  "The relationship between motion and force at the end-effector — how it feels to push on it",
+                correct: true,
+              },
+            ],
+            explain:
+              "Neither pure force nor pure position: impedance control fixes the mass–spring–damper law connecting the two, and contact with the environment decides where along that law the system settles.",
+          },
+        ]}
+      />
 
       <BookRef>Modern Robotics §11.5 & §11.7 — Force control and impedance control (Eqs. 11.62–11.65).</BookRef>
     </div>

@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef } from "../../components/prose";
 import { WidgetShell, LabeledSlider, WidgetButton, Readout } from "../../components/widgets/WidgetShell";
 import { Challenge } from "../../components/widgets/Challenge";
+import { Quiz } from "../../components/widgets/Quiz";
+import { CircleMap, type CircleMapInfo, type CircleMapPreset } from "../../components/widgets/CircleMap";
 import { Scene3D, Triad, PosedGroup } from "../../components/three/Scene3D";
 import { Ellipsoid, PrincipalAxes } from "../../components/three/viz3d";
 import { type Vec3, deg, mat3Identity } from "../../lib/math/vec";
@@ -103,18 +105,85 @@ export default function MassMatrix() {
       />
 
       <p>
-        At rest (<M>{"\\dot{\\theta}=0"}</M>) the joint torques and accelerations are linked by
-        the symmetric positive-definite <strong>mass matrix</strong> <M>{"M(\\theta)"}</M>:
+        Stretch your arm straight out and swing it quickly side to side from the shoulder. Now
+        tuck your fist to your chest and swing again. Same arm, same mass, same muscles — but the
+        folded arm starts and stops far more easily. Fold the arm and the mass sits close to the
+        shoulder; stretch it and the same kilograms are suddenly much harder for the shoulder to
+        accelerate. Whatever number plays the role of "mass" for a robot arm clearly is not a
+        constant — it depends on the arm's posture, and, as you will see, on the <em>direction</em>{" "}
+        you try to accelerate in.
+      </p>
+
+      <p>
+        For a single point mass, Newton gives <M>{"f = \\mathfrak{m}a"}</M>: one scalar{" "}
+        <M>{"\\mathfrak{m}"}</M>, resisting acceleration the same amount in every direction. For a
+        robot, the honest replacement is the <strong>mass matrix</strong> <M>{"M(\\theta)"}</M> —
+        the matrix that converts joint accelerations into the joint torques needed to cause them.
+        At rest (<M>{"\\dot{\\theta}=0"}</M>, so no velocity-dependent effects) the relationship is:
       </p>
       <Eq>{"\\tau = M(\\theta)\\,\\ddot{\\theta} + g(\\theta), \\qquad \\mathcal{K} = \\tfrac12\\,\\dot{\\theta}^{\\mathsf T} M(\\theta)\\,\\dot{\\theta}."}</Eq>
       <p>
-        The kinetic-energy quadratic is the direct generalization of{" "}
-        <M>{"\\tfrac12 \\mathfrak{m} v^2"}</M>. Because <M>{"M"}</M> is generally not a scalar
-        multiple of the identity, the acceleration <M>{"\\ddot{\\theta}"}</M> is{" "}
-        <em>not</em> parallel to the torque <M>{"\\tau"}</M> that produced it — the arm has a
-        preferred set of "easy" and "hard" directions, given by the eigenvectors of{" "}
-        <M>{"M(\\theta)"}</M>.
+        Read it back. The first equation is <M>{"f = \\mathfrak{m}a"}</M> with the scalar swapped
+        for a matrix (plus the gravity torque <M>{"g(\\theta)"}</M>, which is there even standing
+        still). The second is <M>{"\\tfrac12 \\mathfrak{m} v^2"}</M> with the matrix sitting in the
+        middle of the square — a <em>quadratic form</em>, the same "sandwich a matrix between a
+        vector and itself" pattern you met with the manipulability ellipsoid. And <M>{"M"}</M> is{" "}
+        <strong>positive-definite</strong>, which is just physics wearing a math word: the kinetic
+        energy <M>{"\\tfrac12\\dot\\theta^{\\mathsf T} M \\dot\\theta"}</M> comes out strictly
+        positive for every nonzero motion — a moving robot always carries energy.
       </p>
+      <p>
+        Because <M>{"M"}</M> is generally not a scalar multiple of the identity, the acceleration{" "}
+        <M>{"\\ddot{\\theta}"}</M> is <em>not</em> parallel to the torque <M>{"\\tau"}</M> that
+        produced it — the arm has a preferred set of "easy" and "hard" directions, given by the
+        eigenvectors of <M>{"M(\\theta)"}</M>.
+      </p>
+
+      <KeyIdea>
+        A robot does not have <em>a</em> mass. It has a mass <em>matrix</em>{" "}
+        <M>{"M(\\theta)"}</M> that changes with posture and resists acceleration by different
+        amounts in different directions. Torque in, acceleration out — but tilted.
+      </KeyIdea>
+
+      <H2>Feed it every acceleration at once</H2>
+      <p>
+        A matrix is best understood by what it does to a whole circle of inputs, not one input at
+        a time. Take every joint acceleration of "unit effort" — the unit circle in the{" "}
+        <M>{"(\\ddot\\theta_1, \\ddot\\theta_2)"}</M> plane — and push each one through{" "}
+        <M>{"\\tau = M\\ddot\\theta"}</M>. Out comes an ellipse of torques. Long axis: a
+        combination of joint accelerations that demands a lot of torque — a "heavy" direction.
+        Short axis: a combination the arm barely resists — a "light" one. Because <M>{"M"}</M> is
+        symmetric, those two special directions are exactly its eigenvectors, and the axis lengths
+        are its eigenvalues.
+      </p>
+      <p>
+        How lopsided the ellipse is gets its own name: the <strong>condition number</strong>{" "}
+        <M>{"\\lambda_{\\max}/\\lambda_{\\min}"}</M> — how many times heavier the heaviest
+        direction feels than the lightest. A condition number of 1 is a circle: mass the same in
+        every direction, like a point mass. A condition number of 30 is a needle: the same motor
+        effort that snaps the arm along one direction barely budges it along another.
+      </p>
+
+      <Aside>
+        This is the same circle-to-ellipse machine from the{" "}
+        <a href="#/math2-linalg">Math 2 · Linear algebra module</a>, now loaded with genuine mass
+        matrices of the unit 2R arm (<M>{"\\mathfrak{m}_1 = \\mathfrak{m}_2 = L_1 = L_2 = 1"}</M>)
+        at named elbow angles. Since a mass matrix is symmetric, the gold eigen-lines always line
+        up with the ellipse axes — that alignment is special to symmetric matrices, not a general
+        fact.
+      </Aside>
+
+      <p>
+        <strong>Try this:</strong> step through the presets from <em>folded flat</em> to{" "}
+        <em>straight</em> — the elbow angle unbending in stages. Folded flat gives a perfect
+        circle (the arm doubles back on itself and, for this idealized model, joint 1 feels only
+        1 kg·m² every way). By <em>straight</em>, the ellipse is a needle tipped along the
+        "both joints together" direction: accelerating both joints the same way slings the far
+        mass fastest and costs the most torque. Watch the eigenvalue labels on the gold lines
+        grow apart as you go.
+      </p>
+
+      <MassCircleWidget />
 
       <H2>Two ellipses, two spaces</H2>
       <p>
@@ -137,6 +206,15 @@ export default function MassMatrix() {
           in each direction.
         </li>
       </ul>
+
+      <p>
+        <strong>Try this:</strong> set the arm to the book pose <M>{"(0^\\circ, 90^\\circ)"}</M>{" "}
+        on the <em>unit</em> preset and check the readouts against the matrix you just explored:{" "}
+        <M>{"M_{11}=3,\\ M_{12}=1,\\ M_{22}=1"}</M>. Then drag <M>{"\\theta_2"}</M> slowly toward
+        0° and watch both pictures at once — the gold joint-space ellipse stretches (cond climbs
+        and turns red past 6), while the purple tip ellipse rotates with the arm. Finally crank{" "}
+        <M>{"\\mathfrak{m}_2"}</M> up: the far mass dominates everything.
+      </p>
 
       <WidgetShell
         title="Inertia ellipsoids of the 2R arm"
@@ -245,7 +323,159 @@ export default function MassMatrix() {
         the fingertip — central to haptics and force control.
       </KeyIdea>
 
+      <H2>Traps</H2>
+      <ul>
+        <li>
+          <strong>The joint-space ellipse is not pointing anywhere in the room.</strong> Its long
+          axis is a <em>combination of joint accelerations</em> — "both joints together" or
+          "joints opposing" — not a Cartesian direction. Only the purple <M>{"\\Lambda"}</M>{" "}
+          ellipse at the tip lives in real space.
+        </li>
+        <li>
+          <strong>There is no single "mass of the robot".</strong> Any control gain or motor
+          sizing based on one number is implicitly picking one posture and one direction;{" "}
+          <M>{"M(\\theta)"}</M> can change several-fold between folded and stretched.
+        </li>
+        <li>
+          <strong>Big eigenvalue means heavy, not strong.</strong> A long ellipse axis is a
+          direction the motors struggle to accelerate — resistance, not capability. (Note the
+          torque ellipse of <M>{"M"}</M> is long exactly where the acceleration ellipse of{" "}
+          <M>{"M^{-1}"}</M> is short.)
+        </li>
+        <li>
+          <strong><M>{"\\Lambda"}</M> blows up at singularities.</strong> It is built from{" "}
+          <M>{"J^{-1}"}</M>, so as the arm straightens, the apparent mass in the lost direction
+          goes to infinity — the tip truly cannot be accelerated that way, no matter the torque.
+          That is why the widget normalizes the ellipse's size and reports the raw numbers
+          separately.
+        </li>
+      </ul>
+
+      <Quiz
+        challengeId="ch8-massmatrix-quiz"
+        goal={<>Answer all three questions correctly.</>}
+        questions={[
+          {
+            prompt: (
+              <>
+                The joint-space inertia ellipse of <M>{"M(\\theta)"}</M> has a long gold axis.
+                What does that direction mean?
+              </>
+            ),
+            options: [
+              { label: "A Cartesian direction in which the tip is hard to push" },
+              {
+                label: "A combination of joint accelerations that demands the most torque per unit acceleration",
+                correct: true,
+              },
+              { label: "The direction the arm will fall under gravity" },
+            ],
+            explain: (
+              <>
+                The ellipse lives in the abstract <M>{"(\\ddot\\theta_1, \\ddot\\theta_2)"}</M>{" "}
+                plane. Its long axis is the "heaviest" mix of joint accelerations. Cartesian
+                heaviness at the tip is the job of <M>{"\\Lambda"}</M>, and gravity is a separate
+                term entirely.
+              </>
+            ),
+          },
+          {
+            prompt: <>Why does the mass matrix depend on the configuration <M>{"\\theta"}</M>?</>,
+            options: [
+              { label: "The links' masses change as the motors heat up" },
+              {
+                label: "Folding or extending the arm moves the same masses closer to or farther from the joints that must swing them",
+                correct: true,
+              },
+              { label: "It doesn't — mass is conserved, so M is constant" },
+            ],
+            explain: (
+              <>
+                No mass is created or destroyed — but leverage changes. A mass far from a joint's
+                axis is harder for that joint to accelerate (the <M>{"2L_1L_2\\cos\\theta_2"}</M>{" "}
+                term), so the <em>effective</em> inertia is posture-dependent even though the
+                kilograms are fixed.
+              </>
+            ),
+          },
+          {
+            prompt: (
+              <>
+                You push sideways on the robot's end-effector to feel how heavy it is. Which
+                matrix answers?
+              </>
+            ),
+            options: [
+              { label: <M>{"M(\\theta)"}</M> },
+              { label: <M>{"\\Lambda(\\theta) = J^{-\\mathsf T} M J^{-1}"}</M>, correct: true },
+              { label: <>The condition number <M>{"\\lambda_{\\max}/\\lambda_{\\min}"}</M></> },
+            ],
+            explain: (
+              <>
+                Pushing the tip is a Cartesian, task-space question, so it is answered by the
+                task-space mass matrix <M>{"\\Lambda"}</M> — <M>{"M"}</M> relates joint torques to
+                joint accelerations, and the condition number is just a shape summary, not a map.
+              </>
+            ),
+          },
+        ]}
+      />
+
       <BookRef>Modern Robotics §8.1.3 — Understanding the Mass Matrix (Figs. 8.3–8.4).</BookRef>
     </div>
+  );
+}
+
+/* ============ widget 0: joint-acceleration circle → torque ellipse ============ */
+
+// Genuine planar2R_M(θ) of the unit arm (m₁ = m₂ = L₁ = L₂ = 1) at named elbow
+// angles; M11 = 3 + 2cosθ₂, M12 = 1 + cosθ₂, M22 = 1.
+const MASS_PRESETS: CircleMapPreset[] = [
+  { label: "folded flat (θ₂ = 180°)", m: [1, 0, 0, 1] },
+  { label: "half bent (θ₂ = 120°)", m: [2, 0.5, 0.5, 1] },
+  { label: "book pose (θ₂ = 90°)", m: [3, 1, 1, 1] },
+  { label: "nearly straight (θ₂ = 30°)", m: [4.73, 1.87, 1.87, 1] },
+  { label: "straight (θ₂ = 0°)", m: [5, 2, 2, 1] },
+];
+
+function MassCircleWidget() {
+  const [info, setInfo] = useState<CircleMapInfo | null>(null);
+  const onState = useCallback((s: CircleMapInfo) => setInfo(s), []);
+
+  // condition number from the singular values (= |eigenvalues| for symmetric M)
+  const cond = info && info.sigma[1] > 1e-9 ? info.sigma[0] / info.sigma[1] : Infinity;
+  const symmetric = !!info && Math.abs(info.m[1] - info.m[2]) < 0.05;
+  const met = !!info && symmetric && info.sigma[1] >= 0.05 && cond >= 8;
+
+  return (
+    <>
+      <CircleMap
+        title="Joint-acceleration circle in, torque ellipse out"
+        initial={[3, 1, 1, 1]}
+        presets={MASS_PRESETS}
+        showEigen={true}
+        unitPx={36}
+        sliderRange={6}
+        inputLabel="unit circle of joint accelerations (θ̈₁, θ̈₂)"
+        outputLabel="the torques they demand"
+        onState={onState}
+        caption={
+          <>
+            Dashed gray: every joint acceleration of unit effort. Purple: the torques{" "}
+            <M>{"\\tau = M\\ddot\\theta"}</M> they demand. The presets are the unit 2R arm's
+            genuine mass matrix at named elbow angles; gold lines are the eigen-directions —
+            because <M>{"M"}</M> is symmetric they sit exactly on the ellipse axes, with the
+            eigenvalue printed as the stretch factor. (Scale: 1 grid unit = 1 rad/s² in,
+            1 N·m out.)
+          </>
+        }
+      />
+      <Challenge id="ch8-mass-circle" met={met}>
+        Make the arm at least 8× heavier in its heaviest direction than in its lightest — get the
+        condition number <M>{"\\lambda_{\\max}/\\lambda_{\\min} \\ge 8"}</M> while keeping the
+        matrix symmetric (<M>{"b = c"}</M>, or it is no longer a mass matrix). Unbending the elbow
+        past <em>nearly straight</em> is one route; the sliders are another.
+      </Challenge>
+    </>
   );
 }

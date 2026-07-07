@@ -324,6 +324,10 @@ function DoublePendulum() {
     + 0.5 * m2 * L2 * L2 * a.w2 * a.w2
     + m2 * L1 * L2 * a.w1 * a.w2 * Math.cos(a.th1 - a.th2);
   const V = -(m1 + m2) * G * L1 * Math.cos(a.th1) - m2 * G * L2 * Math.cos(a.th2);
+  // KE↔PE exchange bars: measure PE from the lowest possible configuration
+  const Vmin = -(m1 + m2) * G * L1 - m2 * G * L2;
+  const PE = V - Vmin;
+  const Etot = Math.max(T + PE, 1e-6);
 
   const div = divRef.current;
   const dNow = div.length ? div[div.length - 1].d : L2 * TWIN_OFFSET;
@@ -375,7 +379,7 @@ function DoublePendulum() {
       <WidgetShell
         title="Double pendulum — twin systems, Lagrangian chaos"
         onReset={reset}
-        caption="Two identical double pendulums run side by side; the twin (red tip) starts with θ₂ offset by just 0.06°. Left: both pendulums with fading tip trails. Right: the tip separation δ(t) on a log scale — chaotic runs climb through the gold 0.5 m line in seconds, while small-angle runs stay flat. The energy readout is conserved throughout: chaos is not noise."
+        caption="Two identical double pendulums run side by side; the twin (red tip) starts with θ₂ offset by just 0.06°. Left: both pendulums with fading tip trails, plus the KE↔PE exchange bars — kinetic (orange) and potential (blue) slosh back and forth on a shared joule scale but always sum to the full bar. Right: the tip separation δ(t) on a log scale — chaotic runs climb through the gold 0.5 m line in seconds, while small-angle runs stay flat. Chaos is not noise: the energy bookkeeping stays exact throughout."
       >
         <svg viewBox={`0 0 ${W} ${H}`} className="block w-full rounded-lg bg-[#fbfaf7]">
           {/* fading trails */}
@@ -404,6 +408,27 @@ function DoublePendulum() {
           <line x1={22} y1={62} x2={192} y2={62} stroke="#e4e1d8" />
           <text x={24} y={80} className="ui text-[11px] fill-[#4b4b5e]">E = T + V = {(T + V).toFixed(2)} J</text>
           <text x={24} y={96} className="ui text-[10px] fill-[#8a8a9b]">conserved while chaos unfolds</text>
+
+          {/* KE↔PE energy-exchange bars (pendulum A) */}
+          <rect x={14} y={252} width={200} height={94} rx={9} fill="#ffffff" opacity={0.9} stroke="#d8d4c8" />
+          <text x={26} y={272} className="ui text-[10.5px] font-bold fill-[#8a8a9b]" letterSpacing="1.2">ENERGY EXCHANGE</text>
+          <text x={26} y={291} className="ui text-[10px]" fill={ORANGE}>KE</text>
+          <rect x={48} y={283} width={130} height={10} rx={2} fill="#f1eee6" />
+          <rect x={48} y={283} width={Math.min(130, (T / Etot) * 130)} height={10} rx={2} fill={ORANGE} opacity={0.85} />
+          <text x={26} y={309} className="ui text-[10px]" fill={BLUE}>PE</text>
+          <rect x={48} y={301} width={130} height={10} rx={2} fill="#f1eee6" />
+          <rect x={48} y={301} width={Math.min(130, (PE / Etot) * 130)} height={10} rx={2} fill={BLUE} opacity={0.85} />
+          {/* shared scale: 0 … Etot */}
+          <line x1={48} y1={318} x2={178} y2={318} stroke="#b6b2a4" strokeWidth={1} />
+          {[0, 0.5, 1].map(f => (
+            <g key={f}>
+              <line x1={48 + f * 130} y1={318} x2={48 + f * 130} y2={322} stroke="#b6b2a4" />
+              <text x={48 + f * 130} y={332} textAnchor="middle" className="ui fill-[var(--ink-faint)] text-[8.5px]">
+                {(f * Etot).toFixed(f === 0 ? 0 : 1)}{f === 1 ? " J" : ""}
+              </text>
+            </g>
+          ))}
+          <text x={26} y={344} className="ui text-[8.5px] fill-[#8a8a9b]">the two bars always sum to the full scale</text>
 
           {/* divergence plot */}
           <line x1={DP.x0} y1={DP.y0} x2={DP.x0} y2={DP.y1} stroke="#b6b2a4" strokeWidth={1.4} />
@@ -569,9 +594,10 @@ export default function Lagrangian() {
         pencil line. For the first second or two the red twin hides perfectly behind the
         purple tip; then the δ(t) plot on the right shows their separation climbing the log
         scale almost linearly — exponential growth — until the trajectories are meters apart.
-        Keep an eye on the energy readout — E stays constant (this is a frictionless
-        Lagrangian system doing perfect bookkeeping) even while the motion looks like
-        nonsense.
+        Keep an eye on the energy-exchange bars while it runs: kinetic and potential energy
+        trade violently at every swing, yet the two bars always sum to the same full scale —
+        a frictionless Lagrangian system doing perfect bookkeeping even while the motion
+        looks like nonsense.
       </p>
 
       <DoublePendulum />

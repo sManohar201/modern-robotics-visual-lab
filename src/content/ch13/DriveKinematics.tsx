@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef } from "../../components/prose";
 import { WidgetShell, LabeledSlider, WidgetButton, Readout } from "../../components/widgets/WidgetShell";
 import { Challenge } from "../../components/widgets/Challenge";
+import { Quiz } from "../../components/widgets/Quiz";
 import { deg, wrapAngle, clamp } from "../../lib/math/vec";
 
 /* ============================================================
@@ -87,49 +88,110 @@ export default function DriveKinematics() {
         chapter="Chapter 13"
         section="Wheeled Mobile Robots"
         title="Omnidirectional vs. Differential Drive"
-        lede="Two robots, the same four wheel motors, completely different abilities. One can slide straight sideways; the other can only ever drive along its nose. The difference is the rank of a single 3×3 matrix."
+        lede="Two robots, the same wheel motors, completely different abilities. One can slide straight sideways; the other can only ever drive along its nose. The difference is a single number attached to a 3×3 matrix."
       />
 
       <p>
-        Every wheeled base maps wheel driving speeds <M>{"u"}</M> to the chassis body twist{" "}
-        <M>{"\\mathcal{V}_b = (\\omega_{bz}, v_{bx}, v_{by})"}</M> through a kinematic matrix that
-        does not depend on the heading:
+        Push your office chair. It glides in any direction you push — sideways into the desk gap,
+        diagonally toward the window, spinning as it goes. Now think about your car. It has plenty
+        of engine, but it <em>cannot</em> slide sideways into a parking spot; the only way in is
+        the familiar back-and-forth shuffle. Both machines roll on wheels. What separates them is
+        not power or wheel count — it is what directions the wheels <em>allow</em>, and this
+        lesson pins that difference down to one matrix.
+      </p>
+
+      <p>
+        Recall from the previous lesson that a planar chassis's motion at any instant is its{" "}
+        <strong>body twist</strong> — the triple{" "}
+        <M>{"\\mathcal{V}_b = (\\omega_{bz}, v_{bx}, v_{by})"}</M> of turn rate, forward speed,
+        and sideways speed, all measured in the robot's own frame. Every wheeled base connects the
+        wheel driving speeds <M>{"u"}</M> to that twist through one kinematic matrix, and because
+        it is written in the body frame it does not care which way the robot happens to be facing:
       </p>
       <Eq>{"u = H(0)\\,\\mathcal{V}_b, \\qquad H(0) \\in \\mathbb{R}^{m \\times 3}."}</Eq>
       <p>
-        Whether the robot is omnidirectional or nonholonomic comes down to the{" "}
-        <strong>rank of <M>{"H(0)"}</M></strong>. Rank 3 means every body twist — including pure
-        sideways motion <M>{"v_{by}"}</M> — has a wheel-speed solution. Rank 2 means one whole
-        direction of motion has no solution; that missing direction is the no-side-slip constraint.
+        Read it back: pick any chassis motion you would like — some mix of turning, driving, and
+        strafing — and <M>{"H(0)"}</M> tells you what each of the <M>{"m"}</M> wheels would have
+        to spin at to produce it. If <em>every</em> twist yields a valid wheel-speed assignment,
+        the robot can move any way it likes. If some twist yields no consistent assignment, that
+        motion is simply unavailable — no controller can summon it.
       </p>
+
+      <p>
+        Which case you are in is decided by the <strong>rank</strong> of <M>{"H(0)"}</M> — the
+        number of genuinely independent motion directions the matrix can account for, out of the 3
+        it has columns for. Rank 3 means every body twist, including pure sideways motion{" "}
+        <M>{"v_{by}"}</M>, has a wheel-speed solution. Rank 2 means one whole direction of motion
+        has been silently deleted: for a normal wheel, that deleted direction is sliding along the
+        axle, and the resulting rule <M>{"v_{by} = 0"}</M> is exactly the no-side-slip constraint.
+      </p>
+
+      <Aside>
+        Rank is the "how many directions survive the matrix" number from linear algebra — the same
+        idea as counting how flat a matrix squashes its input space. If it feels slippery, the{" "}
+        <a href="#/math2-linalg">Math 2 · Linear algebra module</a> builds it with a picture, and
+        the <a href="#/ch13-nonholonomic">previous lesson</a> introduces the constraint vocabulary
+        used here.
+      </Aside>
+
+      <p>
+        A velocity rule like <M>{"v_{by} = 0"}</M> that cannot be re-expressed as a fence in
+        position space is called a <strong>nonholonomic constraint</strong>: it forbids certain{" "}
+        <em>velocities</em> without shrinking the set of poses the robot can eventually reach.
+        Your car is the everyday example — it can occupy any parking spot on the street, it just
+        cannot travel there sideways.
+      </p>
+
+      <KeyIdea>
+        One matrix, one question: does <M>{"u = H(0)\\mathcal{V}_b"}</M> have a wheel-speed answer
+        for <em>every</em> body twist? Rank 3 — yes, the robot is omnidirectional. Rank 2 — no,
+        one velocity direction is forbidden, and the robot is nonholonomic.
+      </KeyIdea>
 
       <H2>Differential drive: forward + turn only</H2>
       <p>
         A diff-drive robot has two independently driven wheels of radius <M>{"r"}</M> a distance{" "}
-        <M>{"2d"}</M> apart, plus a passive caster. Dropping the wheel-angle rows, its kinematics
-        (MR Eq. 13.15) are
+        <M>{"2d"}</M> apart, plus a passive caster to keep it from tipping. Two motors give two
+        knobs: spin the wheels together and it drives; spin them against each other and it turns
+        in place. Writing that down (MR Eq. 13.15, wheel-angle rows dropped):
       </p>
       <Eq>{"\\begin{bmatrix} \\dot\\phi \\\\ \\dot x \\\\ \\dot y \\end{bmatrix} = \\begin{bmatrix} -r/2d & r/2d \\\\ \\tfrac{r}{2}\\cos\\phi & \\tfrac{r}{2}\\cos\\phi \\\\ \\tfrac{r}{2}\\sin\\phi & \\tfrac{r}{2}\\sin\\phi \\end{bmatrix} \\begin{bmatrix} u_L \\\\ u_R \\end{bmatrix},"}</Eq>
       <p>
-        which in body coordinates is just <M>{"v = \\tfrac{r}{2}(u_L + u_R)"}</M> forward and{" "}
-        <M>{"\\omega = \\tfrac{r}{2d}(u_R - u_L)"}</M> turn, with <M>{"v_{by} \\equiv 0"}</M>.
-        Two wheels give two controls, but they only ever address heading and forward speed — there
-        is simply no way to command a sideways slide.
+        Read it back: in body coordinates this is just <M>{"v = \\tfrac{r}{2}(u_L + u_R)"}</M>{" "}
+        forward and <M>{"\\omega = \\tfrac{r}{2d}(u_R - u_L)"}</M> turn — the sum of the wheel
+        speeds drives, the difference steers. Nothing in the equation ever produces a sideways
+        component: <M>{"v_{by} \\equiv 0"}</M> no matter what you feed the motors. The two
+        controls only ever address heading and forward speed; a sideways slide is not hard for
+        this robot, it is <em>unrepresentable</em>.
       </p>
 
       <H2>Mecanum: instantaneous omnidirectional motion</H2>
       <p>
-        Replace the wheels with four mecanum wheels (rollers at <M>{"\\gamma = \\pm45^\\circ"}</M>),
-        half-length <M>{"\\ell"}</M> and half-width <M>{"w"}</M>, and the kinematic matrix becomes
-        full rank (MR Eq. 13.10):
+        Now replace the wheels with four <strong>mecanum wheels</strong> — wheels whose rims carry
+        free-spinning rollers mounted at <M>{"\\gamma = \\pm45^\\circ"}</M>, so each wheel can
+        passively glide along its roller direction while it actively drives. With chassis
+        half-length <M>{"\\ell"}</M> and half-width <M>{"w"}</M>, the kinematic matrix becomes
+        (MR Eq. 13.10):
       </p>
       <Eq>{"u = \\frac{1}{r}\\begin{bmatrix} -\\ell-w & 1 & -1 \\\\ \\ell+w & 1 & 1 \\\\ \\ell+w & 1 & -1 \\\\ -\\ell-w & 1 & 1 \\end{bmatrix} \\begin{bmatrix} \\omega_{bz} \\\\ v_{bx} \\\\ v_{by} \\end{bmatrix}."}</Eq>
       <p>
-        To go forward, all four wheels spin the same way; to strafe along{" "}
-        <M>{"+\\hat y_b"}</M>, wheels 1 and 3 drive backward while 2 and 4 drive forward; to spin
-        in place, the diagonal pairs oppose. Because the matrix has rank 3, you can invert it to
-        realise <em>any</em> commanded <M>{"\\mathcal{V}_b"}</M> — and the chassis is just as fast
-        sideways as forward. There is no Pfaffian constraint.
+        Read it back column by column. To go forward (middle column), all four wheels spin the
+        same way. To strafe along <M>{"+\\hat y_b"}</M> (right column), wheels 1 and 3 drive
+        backward while 2 and 4 drive forward — the drive components cancel, the roller glide adds
+        up sideways. To spin in place (left column), the diagonal pairs oppose. This matrix has
+        rank 3: all three twist components get their own independent wheel pattern, so you can mix
+        any <M>{"\\mathcal{V}_b"}</M> you want — the chassis is just as happy sideways as forward,
+        and there is no forbidden-velocity (nonholonomic) constraint at all.
+      </p>
+
+      <p>
+        <strong>Try this:</strong> in the sandbox below, first press <strong>Go</strong> with the
+        target straight ahead — both robots reach it and look equally capable. Then reset, drag
+        the <strong>strafe</strong> slider to put the target 3 m straight to the side, and press
+        Go again. Watch the green mecanum robot slide over with its nose still pointing forward,
+        while the blue diff-drive has to spin, drive the long way, and spin back. Compare the
+        wheel-speed readouts while the mecanum strafes: opposite signs on the diagonal pairs, the
+        pattern from the matrix's third column.
       </p>
 
       <Sandbox />
@@ -142,6 +204,32 @@ export default function DriveKinematics() {
         twist command; one robot tracks it exactly, the other cannot.
       </KeyIdea>
 
+      <H2>Traps</H2>
+      <ul>
+        <li>
+          <strong>Nonholonomic does not mean unreachable.</strong> The diff-drive can park at{" "}
+          <em>every</em> pose the mecanum can — the constraint forbids velocity directions, not
+          destinations. What it costs is the path: turn, drive, turn again.
+        </li>
+        <li>
+          <strong>More wheels is not more freedom.</strong> The mecanum robot has 4 wheels but
+          still only 3 degrees of freedom — rank is a property of wheel <em>geometry</em>, not
+          motor count. Four ordinary fixed wheels would give you rank 2 (or worse, a robot that
+          fights itself).
+        </li>
+        <li>
+          <strong>Four equations, three unknowns.</strong> For the mecanum robot,{" "}
+          <M>{"u = H(0)\\mathcal{V}_b"}</M> assigns all four wheel speeds from just three twist
+          numbers — so the wheel speeds are not independent. Command four arbitrary speeds that
+          break the pattern and the wheels fight; the rollers skid to absorb the disagreement.
+        </li>
+        <li>
+          <strong>Omnidirectional is not free.</strong> Mecanum rollers trade efficiency and grip
+          for the extra freedom — real omnidirectional bases are happiest on smooth, clean indoor
+          floors, which is why your car still has normal wheels.
+        </li>
+      </ul>
+
       <Aside>
         Omnidirectionality is purely a wheel-geometry property: <M>{"H(0)"}</M> must be rank 3. If
         you built a robot whose omniwheels all shared one driving and one sliding direction,{" "}
@@ -149,6 +237,83 @@ export default function DriveKinematics() {
         feasible body twists are bounded by the per-wheel speed limits{" "}
         <M>{"|u_i| \\le u_{\\max}"}</M>, carving out a convex polyhedron in twist space.
       </Aside>
+
+      <Quiz
+        challengeId="ch13-drive-quiz"
+        goal={<>Answer all three questions correctly.</>}
+        questions={[
+          {
+            prompt: (
+              <>
+                A wheeled base has <M>{"\\operatorname{rank} H(0) = 2"}</M>. What does that mean
+                physically?
+              </>
+            ),
+            options: [
+              { label: "It can only reach poses in a 2-D subset of the plane" },
+              {
+                label: "One whole direction of body velocity has no wheel-speed solution — it cannot strafe",
+                correct: true,
+              },
+              { label: "It has exactly two wheels" },
+            ],
+            explain: (
+              <>
+                Rank counts independent velocity directions the wheels can realise. Rank 2 deletes
+                one of the three twist components — for ordinary wheels, the sideways one. It says
+                nothing about wheel count, and (because the constraint is nonholonomic) nothing
+                about which poses are reachable.
+              </>
+            ),
+          },
+          {
+            prompt: (
+              <>
+                Because of its no-side-slip constraint, is there a parking spot the diff-drive
+                robot can never occupy but the mecanum robot can?
+              </>
+            ),
+            options: [
+              { label: "Yes — spots that require sideways entry are unreachable" },
+              {
+                label: "No — the constraint limits velocities, not reachable poses; only the path is longer",
+                correct: true,
+              },
+              { label: "Yes — the diff-drive can only reach poses on its current heading line" },
+            ],
+            explain: (
+              <>
+                That is the defining property of a nonholonomic constraint: it forbids certain
+                instantaneous motions while leaving the full pose space reachable through
+                manoeuvres — exactly the parallel-parking shuffle.
+              </>
+            ),
+          },
+          {
+            prompt: (
+              <>
+                The mecanum robot's <M>{"H(0)"}</M> is 4×3. If you commanded four arbitrary,
+                independent wheel speeds, what would happen?
+              </>
+            ),
+            options: [
+              { label: "The robot would gain a fourth degree of freedom" },
+              { label: "Nothing special — any four speeds map to some twist exactly" },
+              {
+                label: "In general the four speeds are inconsistent; the rollers skid to absorb the disagreement",
+                correct: true,
+              },
+            ],
+            explain: (
+              <>
+                Only wheel-speed vectors lying in the 3-D column space of <M>{"H(0)"}</M>{" "}
+                correspond to a rigid chassis motion. A 4th independent command has nowhere to go —
+                the wheels fight and the free rollers slip.
+              </>
+            ),
+          },
+        ]}
+      />
 
       <BookRef>Modern Robotics §13.2 — Omnidirectional Wheeled Mobile Robots (Eqs. 13.7–13.10); §13.3.1.2 — The Differential-Drive Robot (Eq. 13.15).</BookRef>
     </div>

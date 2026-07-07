@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef } from "../../components/prose";
 import { WidgetShell, LabeledSlider, WidgetButton, Readout } from "../../components/widgets/WidgetShell";
 import { Challenge } from "../../components/widgets/Challenge";
+import { Quiz } from "../../components/widgets/Quiz";
 import { planar2R_M, planar2R_c, planar2R_g } from "../ch8/dynamics";
 
 // ---- 2R planar arm tracking a circular reference --------------------------
@@ -229,11 +230,23 @@ export default function ComputedTorque() {
       />
 
       <p>
-        Independent-joint control treats each joint as if it were alone:{" "}
-        <M>{"\\tau = K_p\\theta_e + K_d\\dot\\theta_e"}</M>. That ignores the configuration-dependent
-        inertia <M>{"M(\\theta)"}</M>, the Coriolis/centripetal coupling{" "}
-        <M>{"C(\\theta,\\dot\\theta)\\dot\\theta"}</M>, and gravity <M>{"g(\\theta)"}</M> — exactly the
-        terms that dominate when a real arm moves fast or carries a load.
+        Carry a full coffee cup across the room. You don't stare at the surface, wait for a
+        slosh, and then react — you already know how your arm-plus-cup responds, its weight and
+        its swing, so you pre-shape the whole motion in advance and keep your reflexes only for
+        the little leftovers. That is the idea of this page: use a <em>model</em> of the robot to
+        compute most of the torque ahead of time, and let feedback mop up whatever the model
+        missed. Two words for the two ingredients: <strong>feedforward</strong> is torque
+        computed in advance from the model, before any error appears;{" "}
+        <strong>feedback</strong> is torque computed from the measured error, after the fact.
+      </p>
+      <p>
+        Compare that with the last lesson's approach. Independent-joint control treats each joint
+        as if it were alone: <M>{"\\tau = K_p\\theta_e + K_d\\dot\\theta_e"}</M> — pure feedback,
+        no model. That ignores the configuration-dependent inertia <M>{"M(\\theta)"}</M>, the
+        Coriolis/centripetal coupling <M>{"C(\\theta,\\dot\\theta)\\dot\\theta"}</M>, and gravity{" "}
+        <M>{"g(\\theta)"}</M> — exactly the terms that dominate when a real arm moves fast or
+        carries a load. The controller only reacts to those forces after they have already pushed
+        the arm off course.
       </p>
 
       <H2>Cancel the dynamics, then stabilize</H2>
@@ -244,15 +257,56 @@ export default function ComputedTorque() {
       </p>
       <Eq>{"\\tau = M(\\theta)\\big(\\ddot\\theta_d + K_p\\theta_e + K_d\\dot\\theta_e\\big) + C(\\theta,\\dot\\theta)\\dot\\theta + g(\\theta)."}</Eq>
       <p>
-        Substitute this into the true dynamics{" "}
-        <M>{"M\\ddot\\theta + C\\dot\\theta + g = \\tau"}</M> and — if the model is exact — everything
-        but the inertia cancels, leaving the decoupled linear error dynamics
+        Read it back: pay the Coriolis and gravity bills in full (<M>{"C\\dot\\theta + g"}</M>),
+        then ask for an acceleration — the planned <M>{"\\ddot\\theta_d"}</M> plus a spring–damper
+        correction on the error — priced through the inertia <M>{"M(\\theta)"}</M>. Note that{" "}
+        <M>{"M"}</M>, <M>{"C"}</M>, and <M>{"g"}</M> are evaluated at the <em>measured</em>{" "}
+        <M>{"\\theta,\\dot\\theta"}</M>, so this is not blind playback of a recorded plan.
       </p>
-      <Eq>{"\\ddot\\theta_e + K_d\\dot\\theta_e + K_p\\theta_e = 0,"}</Eq>
       <p>
-        one independent, critically-tunable second-order system per joint. The feedforward
-        acceleration <M>{"\\ddot\\theta_d"}</M> means the arm starts moving before any error even
+        Now watch what this torque does to the robot. The true dynamics are
+      </p>
+      <Eq>{"M(\\theta)\\,\\ddot\\theta + C(\\theta,\\dot\\theta)\\,\\dot\\theta + g(\\theta) = \\tau."}</Eq>
+      <p>
+        Substitute the controller's <M>{"\\tau"}</M> in on the right — if the model is exact, the
+        symbols match term for term:
+      </p>
+      <Eq>{"M\\ddot\\theta + C\\dot\\theta + g = M\\big(\\ddot\\theta_d + K_p\\theta_e + K_d\\dot\\theta_e\\big) + C\\dot\\theta + g."}</Eq>
+      <p>
+        The <M>{"C\\dot\\theta"}</M> and <M>{"g"}</M> terms appear identically on both sides.
+        Cancel them:
+      </p>
+      <Eq>{"M\\,\\ddot\\theta = M\\big(\\ddot\\theta_d + K_p\\theta_e + K_d\\dot\\theta_e\\big)."}</Eq>
+      <p>
+        The mass matrix is positive definite (see{" "}
+        <a href="#/ch8-mass-matrix">Chapter 8 · The Mass Matrix</a>), so it is invertible —
+        multiply it away on both sides:
+      </p>
+      <Eq>{"\\ddot\\theta = \\ddot\\theta_d + K_p\\theta_e + K_d\\dot\\theta_e."}</Eq>
+      <p>
+        Finally, since <M>{"\\theta_e = \\theta_d - \\theta"}</M>, the difference{" "}
+        <M>{"\\ddot\\theta_d - \\ddot\\theta"}</M> is just <M>{"\\ddot\\theta_e"}</M>. Move
+        everything to one side:
+      </p>
+      <Eq>{"\\ddot\\theta_e + K_d\\dot\\theta_e + K_p\\theta_e = 0."}</Eq>
+      <p>
+        Read it back: cancel the model, and what's left is a pure spring–damper acting on the{" "}
+        <em>error</em>. The robot's nonlinearity — posture-dependent inertia, velocity coupling,
+        gravity — has vanished from the error's point of view. Each joint's error is now one
+        independent, linear second-order system you can tune with the tools of the last lesson
+        (pick <M>{"K_p, K_d"}</M> for critical damping). And because the feedforward acceleration{" "}
+        <M>{"\\ddot\\theta_d"}</M> is in the loop, the arm starts moving before any error even
         accumulates.
+      </p>
+
+      <p>
+        <strong>Try this:</strong> run the <strong>PD</strong> controller with the default
+        0.6&nbsp;kg payload and watch the red trail sag off the green circle — the blind
+        controller is always reacting late to forces it didn't predict. Crank speed to 2.5 rad/s
+        and it gets worse (Coriolis terms grow with speed²). Now switch to{" "}
+        <strong>computed torque</strong> with the <em>same</em> gains and watch the trail snap
+        onto the circle. Then raise the payload to 2&nbsp;kg — CT still tracks, because its model
+        includes the payload (see the Aside below).
       </p>
 
       <WidgetShell
@@ -340,12 +394,103 @@ export default function ComputedTorque() {
         PD alone cannot do this once the load and speed are large.
       </Challenge>
 
+      <H2>Traps</H2>
+      <ul>
+        <li>
+          <strong>Computed torque is only as good as its model.</strong> The cancellation above
+          worked because every symbol matched. Get a mass wrong and the terms cancel only
+          partially — the leftover acts as a disturbance the spring–damper must fight. The
+          widget's controller is told the payload exactly; a real robot picking up an unknown
+          object is not.
+        </li>
+        <li>
+          <strong>Same gains ≠ same controller.</strong> The PD and CT modes in the widget share
+          identical <M>{"K_p, K_d"}</M>. Every bit of the performance gap comes from the model
+          terms, not from tuning.
+        </li>
+        <li>
+          <strong>Feedforward alone drifts.</strong> Dropping the <M>{"K_p, K_d"}</M> terms and
+          playing back pure model torque fails: the cancellation is never exact, and with no
+          feedback the small residual errors accumulate unchecked.
+        </li>
+        <li>
+          <strong>It costs computation.</strong> Full inverse dynamics —{" "}
+          <M>{"M(\\theta),\\ C(\\theta,\\dot\\theta),\\ g(\\theta)"}</M> — must be evaluated every
+          control tick, typically hundreds of times per second. That is exactly why Chapter 8's
+          recursive Newton–Euler algorithm matters in practice.
+        </li>
+      </ul>
+
       <KeyIdea>
         PD control fights the robot's nonlinear dynamics; computed-torque control cancels them. By
         feeding <M>{"M(\\theta)\\ddot\\theta_d + C\\dot\\theta + g"}</M> forward, it converts a coupled
         nonlinear plant into one clean linear error equation per joint — turning sloppy tracking into
         near-perfect tracking, even under load.
       </KeyIdea>
+
+      <Quiz
+        challengeId="ch11-ct-quiz"
+        goal={<>Answer all three correctly.</>}
+        questions={[
+          {
+            prompt: (
+              <>
+                With a perfect model, what equation does each joint's error obey under
+                computed-torque control?
+              </>
+            ),
+            options: [
+              {
+                label:
+                  "A linear spring–damper, θ̈e + Kd·θ̇e + Kp·θe = 0 — one per joint, the same in every posture",
+                correct: true,
+              },
+              { label: "The full nonlinear dynamics M·θ̈e + C·θ̇e + g = 0" },
+              { label: "Zero error exactly — the model makes feedback unnecessary" },
+            ],
+            explain:
+              "That is the whole point of the cancellation: the nonlinear plant disappears from the error's point of view, leaving one decoupled, critically-tunable second-order system per joint.",
+          },
+          {
+            prompt: (
+              <>
+                Why does plain PD tracking get worse as payload and speed grow, while computed
+                torque barely notices?
+              </>
+            ),
+            options: [
+              { label: "PD's gains are smaller — cranking Kp high enough would match CT exactly" },
+              {
+                label:
+                  "PD must react after inertia, Coriolis, and gravity forces (which grow with load and speed) have already caused error; CT cancels them with the model before they act",
+                correct: true,
+              },
+              { label: "CT runs at a faster control rate than PD" },
+            ],
+            explain:
+              "Both controllers in the widget share the same gains and the same rate. PD is purely reactive, so bigger disturbances mean bigger errors; CT pre-pays those forces via the model.",
+          },
+          {
+            prompt: (
+              <>
+                The controller's model thinks the payload is 0.5&nbsp;kg but the real one is
+                1&nbsp;kg. What happens?
+              </>
+            ),
+            options: [
+              { label: "The arm goes unstable almost immediately" },
+              { label: "Nothing — the feedforward term doesn't depend on the payload" },
+              {
+                label:
+                  "The cancellation is partial; the mismatch acts as a disturbance, tracking degrades gracefully, and the feedback terms still stabilize",
+                correct: true,
+              },
+            ],
+            explain:
+              "Model error doesn't break the controller — it just leaves a residual force for the spring–damper feedback to fight, so performance degrades smoothly toward plain PD.",
+          },
+        ]}
+      />
 
       <BookRef>Modern Robotics §11.4.2 — Computed torque (inverse-dynamics) control (Eqs. 11.35–11.37).</BookRef>
     </div>

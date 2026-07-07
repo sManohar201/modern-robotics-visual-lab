@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef } from "../../components/prose";
 import { WidgetShell, ControlBar, LabeledSlider, WidgetButton, Readout } from "../../components/widgets/WidgetShell";
 import { Challenge } from "../../components/widgets/Challenge";
 import { Quiz } from "../../components/widgets/Quiz";
+import { CircleMap, type CircleMapInfo, type CircleMapPreset } from "../../components/widgets/CircleMap";
 import { Scene3D, Triad } from "../../components/three/Scene3D";
 import { SpatialArm, armState } from "../../components/three/SpatialArm";
 import { Ellipsoid, PrincipalAxes } from "../../components/three/viz3d";
@@ -25,64 +26,157 @@ export default function Manipulability() {
         chapter="Chapter 5"
         section="Velocity Kinematics & Statics"
         title="Manipulability & Force Ellipsoids"
-        lede="Singularity is a yes/no question; manipulability measures how close you are. Feed the Jacobian a unit sphere of joint rates and out comes an ellipsoid — round is good, flat is nearly singular."
+        lede="Singular is a yes/no question; manipulability is the dimmer switch. Feed the arm every possible unit-effort command at once and the tip velocities trace out an ellipsoid — round means healthy, flat means a singularity is near."
       />
 
       <p>
-        A configuration is either singular or not, but it is just as useful to ask how{" "}
-        <em>nearly</em> singular a posture is, and in which directions motion is getting expensive.
-        Send every unit-effort set of joint rates — the unit sphere{" "}
-        <M>{"\\lVert\\dot\\theta\\rVert = 1"}</M> — through the Jacobian and the reachable
-        end-effector velocities form an ellipsoid.
+        Hold your arm out almost — but not quite — straight, and try to draw a small circle with
+        your fingertip. Sweeping side to side is effortless. But the part of the circle that moves
+        the fingertip <em>along</em> the arm, toward or away from your shoulder, is agony: your
+        elbow has to fold at a furious rate to buy a millimeter of tip motion. The arm isn't
+        singular — every direction is still reachable — but some directions have become{" "}
+        <em>expensive</em>. The singularities page asked the yes/no question "is a direction lost?"
+        This page asks the better engineering question: <strong>how close to lost is it, and which
+        direction goes first?</strong>
       </p>
-      <Eq>{"1 = \\dot\\theta^{\\mathsf T}\\dot\\theta = \\dot x^{\\mathsf T}(JJ^{\\mathsf T})^{-1}\\dot x."}</Eq>
+
+      <H2>Feed it every command at once</H2>
       <p>
-        The shape is set by <M>{"A = JJ^{\\mathsf T}"}</M>: its eigenvectors are the principal axes
-        and the square roots of its eigenvalues <M>{"\\sqrt{\\lambda_i}"}</M> are the semi-axis
-        lengths. A round ellipsoid means the tip moves equally easily in all directions; a flat one
-        means a direction is becoming hard; at a singularity it collapses to a disk or a line.
+        Here is the trick that turns "how easy is each direction?" into a single picture. Instead
+        of testing tip directions one at a time, take <em>every</em> combination of joint rates of
+        unit effort — all the vectors <M>{"\\dot\\theta"}</M> with{" "}
+        <M>{"\\lVert\\dot\\theta\\rVert = 1"}</M>, which form a circle (two joints) or a sphere
+        (three) — and push the whole batch through the Jacobian at once. Each input lands at{" "}
+        <M>{"\\dot x = J\\dot\\theta"}</M>, and the outputs trace out an{" "}
+        <strong>ellipse</strong> (or ellipsoid): stretched in directions the arm moves easily,
+        pinched in directions it doesn't.
+      </p>
+      <Aside>
+        "A matrix turns the unit circle into an ellipse" is exactly the machine built in the{" "}
+        <a href="#/math2-linalg">Math 2 · Linear algebra module</a> — same widget, general matrix.
+        Here the matrix is a real arm's Jacobian, so the circle is joint-rate commands and the
+        ellipse is tip velocities.
+      </Aside>
+      <p>
+        <strong>Try this:</strong> the presets below are the planar 2R arm's actual Jacobian at
+        named postures (link lengths 1 and 1). Click <em>elbow square</em> and note a healthy,
+        chubby ellipse. Step through <em>nearly straight</em> and then <em>straight — singular</em>:
+        the ellipse thins into a needle and finally collapses to a line segment — the flatland
+        version of the fingertip experiment above. The red and green arrows are the two Jacobian
+        columns; watch them become parallel as the ellipse dies.
+      </p>
+
+      <CircleWidget />
+
+      <H2>Putting an equation on the picture</H2>
+      <p>
+        Now let's earn the formula for that ellipse. Every point <M>{"\\dot x"}</M> on it came from
+        some unit input, so run the machine backwards: the input was{" "}
+        <M>{"\\dot\\theta = J^{-1}\\dot x"}</M>, and "the input had unit effort" says{" "}
+        <M>{"\\dot\\theta^{\\mathsf T}\\dot\\theta = 1"}</M>. Substitute the first into the second
+        and the ellipse's equation falls out:
+      </p>
+      <Eq>{"1 = \\dot\\theta^{\\mathsf T}\\dot\\theta = (J^{-1}\\dot x)^{\\mathsf T}(J^{-1}\\dot x) = \\dot x^{\\mathsf T}(JJ^{\\mathsf T})^{-1}\\dot x."}</Eq>
+      <p>
+        Read it back. An expression of the shape <M>{"\\dot x^{\\mathsf T} M \\dot x"}</M> — a
+        matrix sandwiched between two copies of a vector — is called a{" "}
+        <strong>quadratic form</strong>: it eats a vector and returns one number, and setting that
+        number to 1 carves out an ellipse (in 2-D) or ellipsoid (in 3-D). So the equation says:
+        the tip velocities reachable with unit effort are exactly the ellipsoid whose matrix is{" "}
+        <M>{"(JJ^{\\mathsf T})^{-1}"}</M>. All the geometry is stored in the symmetric matrix{" "}
+        <M>{"A = JJ^{\\mathsf T}"}</M>: its eigenvectors point along the ellipsoid's principal
+        axes, and the square roots of its eigenvalues <M>{"\\sqrt{\\lambda_i}"}</M> are the
+        semi-axis lengths — how far the ellipsoid reaches along each axis.
       </p>
 
       <H2>The manipulability ellipsoid, live</H2>
       <p>
-        Three scalars summarize it: the axis ratio{" "}
-        <M>{"\\mu_1 = \\sqrt{\\lambda_{\\max}/\\lambda_{\\min}}"}</M> (best near 1), its square{" "}
-        <M>{"\\mu_2"}</M> (the condition number), and the volume{" "}
-        <M>{"\\mu_3 = \\sqrt{\\lambda_1\\lambda_2\\lambda_3} = \\sqrt{\\det A}"}</M> (bigger is
-        better).
+        Three scalars summarize the shape. The axis ratio{" "}
+        <M>{"\\mu_1 = \\sqrt{\\lambda_{\\max}/\\lambda_{\\min}}"}</M> — longest reach over shortest
+        — is 1 for a perfect sphere and blows up to <M>{"\\infty"}</M> at a singularity. Its square{" "}
+        <M>{"\\mu_2"}</M> is the <strong>condition number</strong> of <M>{"A"}</M> (the standard
+        linear-algebra name for "how lopsided"). And the volume{" "}
+        <M>{"\\mu_3 = \\sqrt{\\lambda_1\\lambda_2\\lambda_3} = \\sqrt{\\det A}"}</M> measures the
+        overall speed budget — bigger is better, all else equal.
+      </p>
+      <p>
+        <strong>Try this:</strong> straighten the elbow (<M>{"\\theta_3 \\to 0"}</M>) and watch the
+        teal ellipsoid squash into a disk while <M>{"\\mu_1"}</M> climbs. Then hunt the other way:
+        refold the arm looking for the roundest ellipsoid you can find, watching <M>{"\\mu_1"}</M>{" "}
+        drop toward 1. The winning postures are comfortable, mid-fold ones — exactly where a human
+        (or a well-programmed robot) prefers to work.
       </p>
 
       <ManipWidget />
 
+      <KeyIdea>
+        Push the unit sphere of joint rates through <M>{"J"}</M> and you get the manipulability
+        ellipsoid: axes along the eigenvectors of <M>{"A = JJ^{\\mathsf T}"}</M>, semi-axes{" "}
+        <M>{"\\sqrt{\\lambda_i}"}</M>. Round (<M>{"\\mu_1 \\approx 1"}</M>) means every direction
+        is equally easy; flat means a direction is nearly lost; collapsed means singular.
+      </KeyIdea>
+
       <H2>The force ellipsoid is the dual</H2>
       <p>
-        A unit sphere of joint <em>torques</em> maps to a force ellipsoid governed by{" "}
-        <M>{"B = (JJ^{\\mathsf T})^{-1} = A^{-1}"}</M>. It shares the manipulability ellipsoid's
-        axes, but its semi-axes are the reciprocals <M>{"1/\\sqrt{\\lambda_i}"}</M> — long where the
-        other is short.
+        Now swap velocities for pushes. Run the same game with joint <em>torques</em> instead of
+        joint rates: take every unit-effort torque vector <M>{"\\lVert\\tau\\rVert = 1"}</M> and
+        ask what tip forces the arm can exert. Statics (<M>{"\\tau = J^{\\mathsf T}f"}</M>, from
+        the previous page) turns the crank, and out comes a <strong>force ellipsoid</strong>{" "}
+        governed by <M>{"B = (JJ^{\\mathsf T})^{-1} = A^{-1}"}</M>. Inverting a matrix keeps its
+        eigenvectors but flips each eigenvalue to <M>{"1/\\lambda_i"}</M> — so the force ellipsoid
+        shares the manipulability ellipsoid's axes, with semi-axes the reciprocals{" "}
+        <M>{"1/\\sqrt{\\lambda_i}"}</M>: long exactly where the other is short.
       </p>
       <p>
-        This is a real trade-off: the direction the tip moves most easily is the one it can push
-        hardest <em>against</em> least, and vice versa. Because the semi-axes multiply to a constant,
-        the product of the two ellipsoid volumes is fixed for all postures. Near a singularity the
-        manipulability ellipsoid collapses while the force ellipsoid stretches toward infinity along
-        the arm — exactly why a straight elbow holds a heavy load with so little joint torque.
+        This is a real trade-off, not a bookkeeping curiosity: the direction the tip moves most
+        easily is the direction it pushes most weakly, and vice versa. Because each pair of
+        semi-axes multiplies to 1, the product of the two ellipsoid volumes is the same at every
+        posture. Near a singularity the manipulability ellipsoid collapses while the force
+        ellipsoid stretches toward infinity along the arm — which is exactly why you carry a heavy
+        bag with a straight, hanging arm: at that (singular) posture the load direction lies along
+        the force ellipsoid's enormous axis, and your muscles pay almost nothing.
+      </p>
+      <p>
+        <strong>Try this:</strong> toggle both ellipsoids on and confirm they share axes — teal
+        long where orange is short. Then straighten the elbow slowly and watch the exchange: teal
+        pancakes, orange spears out along the arm, and the <M>{"V_A \\cdot V_B"}</M> readout never
+        moves. That frozen product is the duality in one number.
       </p>
 
       <DualityWidget />
 
-      <Aside>
-        Angular and linear velocity have different units, so in practice one usually draws two
-        ellipsoids — one from <M>{"J_\\omega J_\\omega^{\\mathsf T}"}</M> for rotation and one from{" "}
-        <M>{"J_v J_v^{\\mathsf T}"}</M> for translation. The widgets here show the linear-velocity
-        ellipsoid of the end-effector point, the most directly visible one.
-      </Aside>
+      <H2>Traps</H2>
+      <p>
+        <strong>A big volume can hide a flat shape.</strong> <M>{"\\mu_3"}</M> is a product, so a
+        pancake — huge in two directions, dying in the third — can have a respectable volume while
+        being one slider-nudge from singular. Always check the ratio <M>{"\\mu_1"}</M> too.
+      </p>
+      <p>
+        <strong>The ellipsoid is a property of the posture, not the robot.</strong>{" "}
+        <M>{"A = JJ^{\\mathsf T}"}</M> is rebuilt from <M>{"J(\\theta)"}</M> at every pose. A robot
+        doesn't "have" a manipulability; it has one at each configuration, and motion planners
+        chase the good ones.
+      </p>
+      <p>
+        <strong>Don't mix rotations and translations in one ellipsoid.</strong> Angular velocity
+        (rad/s) and linear velocity (m/s) have different units, so lumping all six twist rows into
+        one <M>{"JJ^{\\mathsf T}"}</M> adds apples to oranges. In practice you draw two ellipsoids
+        — one from the angular rows <M>{"J_\\omega J_\\omega^{\\mathsf T}"}</M>, one from the
+        linear rows <M>{"J_v J_v^{\\mathsf T}"}</M>. The widgets here show the linear-velocity
+        ellipsoid of the end-effector point, the one you can see.
+      </p>
+      <p>
+        <strong>The force ellipsoid's long axis is strength, not speed.</strong> It's tempting to
+        read any long axis as "good." Long teal = fast motion; long orange = strong push. At a
+        singularity the orange spike means "infinitely strong against loads in this direction" —
+        precisely because the arm cannot move that way at all.
+      </p>
 
       <KeyIdea>
-        Manipulability ellipsoid: eigenvectors of <M>{"A=JJ^{\\mathsf T}"}</M>, semi-axes{" "}
-        <M>{"\\sqrt{\\lambda_i}"}</M>. Force ellipsoid: same axes, semi-axes{" "}
-        <M>{"1/\\sqrt{\\lambda_i}"}</M>. Easy to move ⇔ hard to push. The product of their volumes is
-        constant, and both degenerate at a singularity.
+        Force ellipsoid: same axes as the manipulability ellipsoid, semi-axes flipped to{" "}
+        <M>{"1/\\sqrt{\\lambda_i}"}</M>. Easy to move ⇔ weak to push. The product of the two
+        volumes is constant across postures, and both ellipsoids degenerate together at a
+        singularity.
       </KeyIdea>
 
       <BookRef>Modern Robotics §5.4 — Manipulability.</BookRef>
@@ -100,6 +194,56 @@ function ellipsoidData(thetas: [number, number, number]) {
   const mu1 = r[2] > 1e-6 ? r[0] / r[2] : Infinity;
   const mu3 = r[0] * r[1] * r[2];
   return { st, pEE, vectors, r, values, mu1, mu3 };
+}
+
+/* ============ widget 0: 2R joint-rate circle → tip-velocity ellipse ============ */
+
+// Planar 2R Jacobian J = [[-s1-s12, -s12],[c1+c12, c12]] with L1 = L2 = 1,
+// evaluated at named postures for the preset buttons.
+const ARM_PRESETS: CircleMapPreset[] = [
+  { label: "elbow square (0°, 90°)", m: [-1, -1, 1, 0] },
+  { label: "worked pose (90°, −90°)", m: [-1, 0, 1, 1] },
+  { label: "folded (0°, 150°)", m: [-0.5, -0.5, 0.13, -0.87] },
+  { label: "nearly straight (0°, 20°)", m: [-0.34, -0.34, 1.94, 0.94] },
+  { label: "straight — singular (0°, 0°)", m: [0, 0, 2, 1] },
+];
+
+function CircleWidget() {
+  const [info, setInfo] = useState<CircleMapInfo | null>(null);
+  const onState = useCallback((s: CircleMapInfo) => setInfo(s), []);
+
+  const ratio = info && info.sigma[1] > 1e-9 ? info.sigma[0] / info.sigma[1] : Infinity;
+  const met = !!info && info.sigma[1] >= 0.05 && ratio >= 6;
+
+  return (
+    <>
+      <CircleMap
+        title="Joint-rate circle in, tip-velocity ellipse out"
+        initial={[-1, -1, 1, 0]}
+        presets={ARM_PRESETS}
+        showEigen={false}
+        inputLabel="unit circle of joint rates (θ̇₁, θ̇₂)"
+        outputLabel="the tip velocities they produce"
+        onState={onState}
+        caption={
+          <>
+            Dashed gray: every joint-rate command of unit effort. Purple: the tip velocities they
+            produce, <M>{"\\dot x = J\\dot\\theta"}</M>. The presets are the 2R arm's genuine
+            Jacobian at named postures; the <span style={{ color: "#d9483f" }}>red</span> and{" "}
+            <span style={{ color: "#2f9e44" }}>green</span> arrows are its columns — where pure
+            joint-1 and pure joint-2 speed send the tip. The sliders let you go off-road to any
+            2×2 matrix.
+          </>
+        }
+      />
+      <Challenge id="ch5-manip-flat" met={met}>
+        Make the ellipse <em>nearly</em> singular without killing it: get the long axis at least
+        6× the short one while the short axis stays alive (≥ 0.05). The <em>nearly straight</em>{" "}
+        posture is one way; or drag the sliders until the two column arrows almost line up —
+        near-parallel columns are exactly what "close to singular" means.
+      </Challenge>
+    </>
+  );
 }
 
 /* ================= widget 1: manipulability ellipsoid ================= */
@@ -231,8 +375,17 @@ function DualityWidget() {
 
       <Quiz
         challengeId="ch5-manip-quiz"
-        goal={<>Confirm the velocity–force duality.</>}
+        goal={<>Confirm the ellipsoid picture and the velocity–force duality.</>}
         questions={[
+          {
+            prompt: <>An axis ratio <M>{"\\mu_1"}</M> close to 1 means…</>,
+            options: [
+              { label: "the tip moves about equally easily in every direction", correct: true },
+              { label: "the arm is at a singularity" },
+              { label: "the arm can exert no force" },
+            ],
+            explain: <>Round ellipsoid ⇔ <M>{"\\lambda_{\\max}\\approx\\lambda_{\\min}"}</M> ⇔ no direction is favored — the isotropic, far-from-singular case. Singularity is the opposite extreme, <M>{"\\mu_1\\to\\infty"}</M>.</>,
+          },
           {
             prompt: <>The force ellipsoid's semi-axes are, relative to the manipulability ellipsoid's…</>,
             options: [
@@ -249,7 +402,7 @@ function DualityWidget() {
               { label: "collapses to a point" },
               { label: "is unchanged" },
             ],
-            explain: <>The manipulability volume → 0 while the force volume → ∞; their product stays constant.</>,
+            explain: <>The manipulability volume → 0 while the force volume → ∞; their product stays constant. Straight-arm bag carry: no motion possible along the load, so no torque needed against it.</>,
           },
         ]}
       />
