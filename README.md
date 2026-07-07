@@ -1,5 +1,7 @@
 # Modern Robotics — Visual Lab
 
+**[Live site →](https://smanohar201.github.io/modern-robotics-visual-lab/)**
+
 An explorable-explanations companion to Lynch & Park, *Modern Robotics: Mechanics,
 Planning, and Control*. Each concept is one scrollable article where prose and
 interactive widgets alternate — every key claim is something you can grab and move.
