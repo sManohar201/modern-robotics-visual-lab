@@ -28,7 +28,7 @@ export const chapters: ChapterDef[] = [
         id: "math1-vectors",
         title: "Math: Vectors and Angles",
         status: "ready",
-        challenges: ["math1-components", "math1-perp", "math1-quiz"],
+        challenges: ["math1-components", "math1-polar", "math1-perp", "math1-quiz"],
         component: lazy(() => import("./physics/MathVectors")),
       },
       {

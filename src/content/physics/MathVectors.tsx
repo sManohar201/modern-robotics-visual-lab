@@ -1,8 +1,8 @@
 import { useRef, useState } from "react";
-import { PageHeader, H2, M, Eq, KeyIdea, Aside, BookRef, PhysicsRef } from "../../components/prose";
+import { PageHeader, H2, M, Eq, KeyIdea, Aside, Worked, BookRef, PhysicsRef } from "../../components/prose";
 import { Challenge } from "../../components/widgets/Challenge";
 import { Quiz } from "../../components/widgets/Quiz";
-import { ControlBar, Readout, WidgetShell } from "../../components/widgets/WidgetShell";
+import { ControlBar, LabeledSlider, Readout, WidgetShell } from "../../components/widgets/WidgetShell";
 import { svgCoords } from "../../lib/svg";
 
 const W = 760;
@@ -182,7 +182,108 @@ function VectorAnatomy() {
 }
 
 // ------------------------------------------------------------------
-// Widget 2: dot and cross — agreement and turning
+// Widget 2: Cartesian vs polar — two names for one arrow
+// ------------------------------------------------------------------
+function PolarCartesian() {
+  const [r, setR] = useState(5);
+  const [thetaDeg, setThetaDeg] = useState(53.13);
+  const theta = (thetaDeg * Math.PI) / 180;
+
+  const x = r * Math.cos(theta);
+  const y = r * Math.sin(theta);
+  const v: [number, number] = [x, y];
+
+  const [tx, ty] = toPx(x, y);
+
+  // polar angle arc, drawn from +x axis toward the arrow
+  const arcR = 34;
+  const a0 = 0;
+  const a1 = -theta; // svg y is flipped
+  const large = Math.abs(thetaDeg) > 180 ? 1 : 0;
+  const sweep = theta >= 0 ? 1 : 0;
+  const arcPath = `M ${CX + arcR} ${CY} A ${arcR} ${arcR} 0 ${large} ${sweep} ${CX + arcR * Math.cos(a1)} ${CY + arcR * Math.sin(a1)}`;
+
+  // challenge: land the tip on (-3, 4) using the polar sliders
+  const target: [number, number] = [-3, 4];
+  const [tgx, tgy] = toPx(target[0], target[1]);
+  const met = Math.abs(x - target[0]) < 0.12 && Math.abs(y - target[1]) < 0.12;
+
+  return (
+    <>
+      <WidgetShell
+        title="Cartesian vs polar — turn the two dials"
+        onReset={() => {
+          setR(5);
+          setThetaDeg(53.13);
+        }}
+        caption={
+          <>
+            The <span style={{ color: PURPLE }}>arrow</span> never changes what it <em>is</em> — only
+            how you name it. Polar names it by <span style={{ color: ORANGE }}>reach</span> and{" "}
+            <span style={{ color: GOLD }}>heading</span>; Cartesian names it by its{" "}
+            <span className="cx">east</span>/<span className="cy">north</span> shadows. Move either
+            dial and watch both readouts update together.
+          </>
+        }
+      >
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          className="block w-full rounded-lg bg-[#fbfaf7] touch-none select-none"
+        >
+          <GridAxes />
+
+          {/* target cross */}
+          <g stroke={GREEN} strokeWidth={2} opacity={met ? 1 : 0.55}>
+            <line x1={tgx - 8} y1={tgy - 8} x2={tgx + 8} y2={tgy + 8} />
+            <line x1={tgx - 8} y1={tgy + 8} x2={tgx + 8} y2={tgy - 8} />
+          </g>
+          <text x={tgx + 12} y={tgy - 10} fontFamily="Inter, sans-serif" fontSize="11" fill={GREEN}>
+            target (−3, 4)
+          </text>
+
+          {/* radius circle the tip rides on */}
+          <circle cx={CX} cy={CY} r={r * S} fill="none" stroke="#e3ddc9" strokeWidth={1.2} strokeDasharray="3 5" />
+
+          {/* Cartesian shadows */}
+          <line x1={tx} y1={ty} x2={tx} y2={CY} stroke={RED} strokeWidth={2} strokeDasharray="5 4" />
+          <line x1={tx} y1={ty} x2={CX} y2={ty} stroke={GREEN} strokeWidth={2} strokeDasharray="5 4" />
+          <line x1={CX} y1={CY} x2={tx} y2={CY} stroke={RED} strokeWidth={5} opacity={0.8} />
+          <line x1={CX} y1={CY} x2={CX} y2={ty} stroke={GREEN} strokeWidth={5} opacity={0.8} />
+
+          {/* polar angle arc */}
+          <path d={arcPath} fill="none" stroke={GOLD} strokeWidth={2.5} />
+          <text
+            x={CX + (arcR + 12) * Math.cos(a1 / 2)}
+            y={CY + (arcR + 12) * Math.sin(a1 / 2) + 4}
+            textAnchor="middle"
+            fontFamily="Inter, sans-serif"
+            fontSize="13"
+            fontWeight="700"
+            fill={GOLD}
+          >
+            θ
+          </text>
+
+          <VArrow tip={v} color={PURPLE} label="v" />
+        </svg>
+        <ControlBar>
+          <LabeledSlider label="r" value={r} min={0.5} max={8} step={0.05} onChange={setR} color={ORANGE} fmt={n => n.toFixed(2)} />
+          <LabeledSlider label="θ" value={thetaDeg} min={-180} max={180} step={0.5} onChange={setThetaDeg} color={GOLD} fmt={n => `${n.toFixed(0)}°`} />
+          <Readout label="polar (r, θ)" value={`(${r.toFixed(2)}, ${thetaDeg.toFixed(0)}°)`} color={ORANGE} />
+          <Readout label="Cartesian (x, y)" value={`(${x.toFixed(2)}, ${y.toFixed(2)})`} color={PURPLE} />
+        </ControlBar>
+      </WidgetShell>
+      <Challenge id="math1-polar" met={met}>
+        Using only the <M>{"r"}</M> and <M>{"\\theta"}</M> dials, land the tip on the green cross at
+        Cartesian <M>{"(-3, 4)"}</M>. You will need <M>{"r = 5"}</M> and an angle in the second
+        quadrant — proof that the same arrow carries two different-looking addresses.
+      </Challenge>
+    </>
+  );
+}
+
+// ------------------------------------------------------------------
+// Widget 3: dot and cross — agreement and turning
 // ------------------------------------------------------------------
 function DotCross() {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -321,7 +422,9 @@ export default function MathVectors() {
       <H2>Components: a vector's shadows</H2>
       <p>
         The pair of numbers <M>{"(3, 4)"}</M> — how far east, how far north — are called the
-        vector's <strong>components</strong>. Think of them as shadows: shine a light from above
+        vector's <strong>components</strong>, and describing an arrow this way is the{" "}
+        <strong>Cartesian</strong> representation (after René Descartes, who first pinned points to
+        a grid of perpendicular axes). Think of the components as shadows: shine a light from above
         and the arrow casts a shadow of length 3 on the east–west axis; shine from the side and
         it casts 4 on the north–south axis. The two shadows pin the arrow down completely.
       </p>
@@ -364,17 +467,88 @@ export default function MathVectors() {
         back. Nothing about arrows is harder than this round trip.
       </KeyIdea>
 
-      <H2>Adding vectors</H2>
+      <H2>Two names for one arrow: Cartesian and polar</H2>
       <p>
-        Walk 3 east, 4 north — then walk 2 east, 1 south. Where are you? 5 east, 3 north:
-        the trips add <em>shadow by shadow</em>. Geometrically you laid the second arrow's tail
-        on the first arrow's tip ("tip-to-tail"); algebraically you just added components:
+        We have quietly been using <em>two</em> ways to write the same arrow, and it is worth
+        naming them, because robotics switches between them constantly.
+      </p>
+      <ul>
+        <li>
+          <strong>Cartesian</strong> <M>{"(v_x, v_y)"}</M> — the two shadows, "go this far east
+          and this far north." Best for <em>adding</em> arrows and for feeding a computer, because
+          each axis is handled independently.
+        </li>
+        <li>
+          <strong>Polar</strong> <M>{"(r, \\theta)"}</M> — a reach <M>{"r = |\\mathbf{v}|"}</M> and
+          a heading <M>{"\\theta"}</M>, "point this way and walk this far." Best when you care
+          about <em>how far</em> and <em>which direction</em> on their own — a range sensor's
+          reading, a wheel's speed and steering angle, a joint's turn.
+        </li>
+      </ul>
+      <p>
+        They are the same arrow in two costumes, and the conversion is the sine/cosine round trip
+        you just met:
+      </p>
+      <Eq>{"\\underbrace{v_x = r\\cos\\theta,\\quad v_y = r\\sin\\theta}_{\\text{polar}\\,\\to\\,\\text{Cartesian}} \\qquad\\qquad \\underbrace{r = \\sqrt{v_x^2 + v_y^2},\\quad \\theta = \\operatorname{atan2}(v_y, v_x)}_{\\text{Cartesian}\\,\\to\\,\\text{polar}}"}</Eq>
+      <p>
+        In the widget below, the two <em>dials</em> are the polar numbers — turn <M>{"r"}</M> and{" "}
+        <M>{"\\theta"}</M> directly — while the readout on the right shows the Cartesian shadows
+        those dials produce. Notice you can never move the arrow without <em>both</em> descriptions
+        changing in lock-step: they are welded together.
+      </p>
+
+      <PolarCartesian />
+
+      <KeyIdea>
+        Cartesian = shadows <M>{"(v_x, v_y)"}</M>, the language of adding and of computers. Polar =
+        reach and heading <M>{"(r, \\theta)"}</M>, the language of sensors and steering. Same arrow;
+        sine and cosine are the translators between the two dictionaries.
+      </KeyIdea>
+
+      <H2>Operations on vectors</H2>
+      <p>
+        Arrows come with their own arithmetic. Four operations cover almost everything you will do
+        before you meet the two <em>products</em> further down.
+      </p>
+      <p>
+        <strong>Addition — combining trips.</strong> Walk 3 east, 4 north — then walk 2 east, 1
+        south. Where are you? 5 east, 3 north: the trips add <em>shadow by shadow</em>.
+        Geometrically you laid the second arrow's tail on the first arrow's tip ("tip-to-tail");
+        algebraically you just added components:
       </p>
       <Eq>{"\\mathbf{a} + \\mathbf{b} = (a_x + b_x,\\; a_y + b_y)."}</Eq>
       <p>
         Robots add vectors constantly: the velocity of a hand is the velocity from the shoulder
         joint <em>plus</em> the velocity from the elbow joint. Whenever effects combine, arrows
         add.
+      </p>
+      <p>
+        <strong>Subtraction — the arrow from here to there.</strong> The difference{" "}
+        <M>{"\\mathbf{b} - \\mathbf{a}"}</M> is the arrow that points <em>from</em> the tip of{" "}
+        <M>{"\\mathbf{a}"}</M> <em>to</em> the tip of <M>{"\\mathbf{b}"}</M> — exactly what you add
+        to <M>{"\\mathbf{a}"}</M> to reach <M>{"\\mathbf{b}"}</M>. This is the single most-used
+        operation in robotics: if the gripper is at <M>{"\\mathbf{p}"}</M> and the target is at{" "}
+        <M>{"\\mathbf{q}"}</M>, then <M>{"\\mathbf{q} - \\mathbf{p}"}</M> is the direction to
+        move and its length is the distance still to go.
+      </p>
+      <Eq>{"\\mathbf{b} - \\mathbf{a} = (b_x - a_x,\\; b_y - a_y)."}</Eq>
+      <p>
+        <strong>Scaling — same direction, new length.</strong> Multiplying by a plain number{" "}
+        <M>{"s"}</M> stretches the arrow: <M>{"s\\mathbf{a} = (s\\,a_x,\\; s\\,a_y)"}</M>. A factor
+        of 2 doubles its length, <M>{"\\tfrac12"}</M> halves it, and a <em>negative</em> factor
+        also flips it to point the opposite way — so <M>{"-\\mathbf{a}"}</M> is <M>{"\\mathbf{a}"}</M>{" "}
+        reversed. (Subtraction is really just <M>{"\\mathbf{b} + (-\\mathbf{a})"}</M>.)
+      </p>
+      <p>
+        <strong>Normalizing — keep the direction, throw away the length.</strong> Divide an arrow
+        by its own length and you get a <strong>unit vector</strong> — length exactly 1, pointing
+        the same way:
+      </p>
+      <Eq>{"\\hat{\\mathbf{a}} = \\frac{\\mathbf{a}}{|\\mathbf{a}|}."}</Eq>
+      <p>
+        A unit vector is <em>pure direction</em>. Robotics leans on them everywhere: the direction
+        a camera faces, the axis a joint spins about, the outward normal of a surface a finger
+        presses on. Whenever you want "which way" without "how much," you normalize.
       </p>
 
       <H2>The dot product: how much do two arrows agree?</H2>
@@ -390,6 +564,37 @@ export default function MathVectors() {
         <strong>positive</strong> means the arrows lean the same way, <strong>zero</strong> means
         they are exactly perpendicular, <strong>negative</strong> means they oppose each other.
       </p>
+
+      <Worked title="Where the dot product comes from — deriving |a||b|cos θ">
+        <p>
+          Why should the tidy sum <M>{"a_x b_x + a_y b_y"}</M> equal the geometric{" "}
+          <M>{"|\\mathbf{a}||\\mathbf{b}|\\cos\\theta"}</M>? Start from the picture and let the{" "}
+          <strong>law of cosines</strong> do the work. Place <M>{"\\mathbf{a}"}</M> and{" "}
+          <M>{"\\mathbf{b}"}</M> tail-to-tail; the third side of the triangle is{" "}
+          <M>{"\\mathbf{b} - \\mathbf{a}"}</M>, and the law of cosines relates the three lengths:
+        </p>
+        <Eq>{"|\\mathbf{b} - \\mathbf{a}|^2 = |\\mathbf{a}|^2 + |\\mathbf{b}|^2 - 2\\,|\\mathbf{a}||\\mathbf{b}|\\cos\\theta."}</Eq>
+        <p>
+          Now expand that same left side using <em>components</em>, since{" "}
+          <M>{"\\mathbf{b}-\\mathbf{a} = (b_x-a_x,\\,b_y-a_y)"}</M>:
+        </p>
+        <Eq>{"|\\mathbf{b}-\\mathbf{a}|^2 = (b_x-a_x)^2 + (b_y-a_y)^2 = \\underbrace{(a_x^2+a_y^2)}_{|\\mathbf{a}|^2} + \\underbrace{(b_x^2+b_y^2)}_{|\\mathbf{b}|^2} - 2(a_x b_x + a_y b_y)."}</Eq>
+        <p>
+          Set the two expressions equal. The <M>{"|\\mathbf{a}|^2"}</M> and{" "}
+          <M>{"|\\mathbf{b}|^2"}</M> cancel from both sides, and what is left, after dividing by{" "}
+          <M>{"-2"}</M>, is exactly
+        </p>
+        <Eq>{"a_x b_x + a_y b_y = |\\mathbf{a}||\\mathbf{b}|\\cos\\theta. \\qquad\\blacksquare"}</Eq>
+        <p>
+          The <em>projection</em> reading falls out for free: group the right side as{" "}
+          <M>{"\\big(|\\mathbf{a}|\\cos\\theta\\big)\\,|\\mathbf{b}|"}</M>. The bracket is the length
+          of <M>{"\\mathbf{a}"}</M>'s shadow cast straight down onto the line of{" "}
+          <M>{"\\mathbf{b}"}</M> — so the dot product is <em>that shadow times the length of{" "}
+          <M>{"\\mathbf{b}"}</M></em>, precisely the "length of the shadow" picture you already
+          had.
+        </p>
+      </Worked>
+
       <p>
         This one operation shows up everywhere in robotics. Mechanical power is{" "}
         <M>{"\\mathbf{F}\\cdot\\mathbf{v}"}</M> — a force only does work to the extent it agrees
@@ -411,6 +616,55 @@ export default function MathVectors() {
         way you would rotate to get from <M>{"\\mathbf{a}"}</M> to <M>{"\\mathbf{b}"}</M>:
         positive counterclockwise, negative clockwise.
       </p>
+
+      <KeyIdea>
+        <strong>So what does the cross product actually give you?</strong> Not an angle, and not a
+        force — it gives <em>turning effect</em>. The dot product answers "how much of{" "}
+        <M>{"\\mathbf{a}"}</M> pushes <em>along</em> <M>{"\\mathbf{b}"}</M>?"; the cross product
+        answers the opposite question, "how much of <M>{"\\mathbf{a}"}</M> acts{" "}
+        <em>sideways</em> to <M>{"\\mathbf{b}"}</M>, twisting around it?" Its size is the leverage
+        (the parallelogram's area); its sign is the direction of the twist. A big number means the
+        arrows are strongly perpendicular — maximum turning; zero means they line up — no turning
+        at all.
+      </KeyIdea>
+
+      <Worked title="Where the cross product comes from — deriving |a||b|sin θ">
+        <p>
+          The area of a parallelogram is <em>base × height</em>. Take{" "}
+          <M>{"\\mathbf{a}"}</M> as the base, with length <M>{"|\\mathbf{a}|"}</M>. The height is
+          how far <M>{"\\mathbf{b}"}</M> rises <em>perpendicular</em> to that base — and since{" "}
+          <M>{"\\mathbf{b}"}</M> leaves the base at angle <M>{"\\theta"}</M>, that perpendicular
+          rise is <M>{"|\\mathbf{b}|\\sin\\theta"}</M>. Multiply:
+        </p>
+        <Eq>{"\\text{area} = \\underbrace{|\\mathbf{a}|}_{\\text{base}}\\cdot\\underbrace{|\\mathbf{b}|\\sin\\theta}_{\\text{height}} = |\\mathbf{a}||\\mathbf{b}|\\sin\\theta."}</Eq>
+        <p>
+          That is the geometric form. To get the component form, notice{" "}
+          <M>{"\\sin\\theta = \\cos(90^\\circ - \\theta)"}</M> is the dot product of{" "}
+          <M>{"\\mathbf{b}"}</M> with <M>{"\\mathbf{a}"}</M> turned a quarter-turn. Rotating{" "}
+          <M>{"\\mathbf{a}=(a_x,a_y)"}</M> by <M>{"90^\\circ"}</M> counter-clockwise gives{" "}
+          <M>{"\\mathbf{a}^{\\perp} = (-a_y,\\, a_x)"}</M>, so
+        </p>
+        <Eq>{"\\mathbf{a}\\times\\mathbf{b} = \\mathbf{a}^{\\perp}\\!\\cdot\\mathbf{b} = (-a_y)(b_x) + (a_x)(b_y) = a_x b_y - a_y b_x. \\qquad\\blacksquare"}</Eq>
+        <p>
+          The same number written two ways: <M>{"a_x b_y - a_y b_x"}</M> to compute,{" "}
+          <M>{"|\\mathbf{a}||\\mathbf{b}|\\sin\\theta"}</M> to picture. (If you have seen
+          determinants, this is just <M>{"\\det\\begin{pmatrix} a_x & b_x \\\\ a_y & b_y \\end{pmatrix}"}</M> — the reason a determinant measures area.)
+        </p>
+      </Worked>
+
+      <p>
+        <strong>Where it earns its keep: torque.</strong> Push on a door. The <em>same</em> force
+        does far more to swing it when applied at the handle than next to the hinge, and does
+        nothing at all if you push straight <em>toward</em> the hinge. That "twisting power" is{" "}
+        <strong>torque</strong>, and it is a cross product: <M>{"\\boldsymbol{\\tau} = \\mathbf{r}\\times\\mathbf{F}"}</M>,
+        where <M>{"\\mathbf{r}"}</M> is the arrow from the pivot to where the force is applied. Only
+        the part of <M>{"\\mathbf{F}"}</M> perpendicular to <M>{"\\mathbf{r}"}</M> turns the door —
+        exactly the <M>{"\\sin\\theta"}</M> the cross product measures. So the cross product does
+        not give you a force; it gives you what a force <em>accomplishes rotationally</em>, which
+        is why it governs torque, angular momentum, and every spinning thing in Chapters 3, 5, and
+        12.
+      </p>
+
       <p>
         <strong>Try this</strong> below: make the two arrows perpendicular and watch the dot
         product hit zero while the parallelogram (cross product) is at its fattest. Then drag
