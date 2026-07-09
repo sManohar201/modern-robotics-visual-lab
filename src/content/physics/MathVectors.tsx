@@ -200,7 +200,9 @@ function PolarCartesian() {
   const a0 = 0;
   const a1 = -theta; // svg y is flipped
   const large = Math.abs(thetaDeg) > 180 ? 1 : 0;
-  const sweep = theta >= 0 ? 1 : 0;
+  // sweep picks which side of the chord the minor arc sits on; keep it in the
+  // wedge between the +x axis and the arrow so the angle mark stays convex.
+  const sweep = theta >= 0 ? 0 : 1;
   const arcPath = `M ${CX + arcR} ${CY} A ${arcR} ${arcR} 0 ${large} ${sweep} ${CX + arcR * Math.cos(a1)} ${CY + arcR * Math.sin(a1)}`;
 
   // challenge: land the tip on (-3, 4) using the polar sliders
