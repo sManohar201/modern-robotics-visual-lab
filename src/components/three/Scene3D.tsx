@@ -15,10 +15,12 @@ export function Scene3D({
   children,
   height = 380,
   camera = [3.2, 2.4, 3.2] as [number, number, number],
+  floor = true,
 }: {
   children: ReactNode;
   height?: number;
   camera?: [number, number, number];
+  floor?: boolean;
 }) {
   return (
     <div style={{ height }} className="rounded-lg overflow-hidden bg-[#f4f2ec] border border-[var(--rule)]">
@@ -26,7 +28,7 @@ export function Scene3D({
         <color attach="background" args={["#f4f2ec"]} />
         <ambientLight intensity={0.9} />
         <directionalLight position={[4, 8, 5]} intensity={0.8} />
-        <gridHelper args={[10, 20, "#d8d4c6", "#e7e4da"]} position={[0, -1.4, 0]} />
+        {floor && <gridHelper args={[10, 20, "#d8d4c6", "#e7e4da"]} position={[0, -1.4, 0]} />}
         <OrbitControls makeDefault enablePan={false} minDistance={2} maxDistance={12} />
         {/* map math z-up to screen up: rotate world so (x,y,z)_math -> (x,z,-y)_three */}
         <group rotation={[-Math.PI / 2, 0, 0]}>{children}</group>

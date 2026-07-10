@@ -1,87 +1,148 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { Line, Html } from "@react-three/drei";
+import { useThree } from "@react-three/fiber";
 import { PageHeader, H2, M, Eq, KeyIdea, Aside, Worked, BookRef, PhysicsRef } from "../../components/prose";
 import { Challenge } from "../../components/widgets/Challenge";
 import { Quiz } from "../../components/widgets/Quiz";
-import { ControlBar, LabeledSlider, Readout, WidgetShell } from "../../components/widgets/WidgetShell";
-import { svgCoords } from "../../lib/svg";
+import { ControlBar, LabeledSlider, Readout, WidgetShell, WidgetButton } from "../../components/widgets/WidgetShell";
+import { Scene3D, Arrow, AXIS_COLORS } from "../../components/three/Scene3D";
+import { AxisArc } from "../../components/three/viz3d";
+import { type Vec3, vadd, vscale, vsub, vnorm, vunit, vdot, rad, deg } from "../../lib/math/vec";
 
-const W = 760;
-const H = 420;
-const S = 42; // px per unit
-const CX = W / 2;
-const CY = H / 2;
+// ------------------------------------------------------------------
+// Shared 3D helpers — all vectors live in the math xy-plane (z = 0),
+// rendered inside Scene3D's z-up group. World = math * K so typical
+// arrows sit comfortably in the camera's view.
+// ------------------------------------------------------------------
+const K = 0.42; // world units per math unit
+const GLIM = 5; // grid half-extent, math units
 const PURPLE = "#6741d9";
 const ORANGE = "#c2571c";
-const RED = "#d9483f";
-const GREEN = "#2f9e44";
+const RED = AXIS_COLORS.x; // #d9483f
+const GREEN = AXIS_COLORS.y; // #2f9e44
+const BLUE = AXIS_COLORS.z; // #3b6fd4
 const GOLD = "#b08c1d";
 
-const toPx = (x: number, y: number): [number, number] => [CX + x * S, CY - y * S];
-const fromPx = (px: number, py: number): [number, number] => [(px - CX) / S, (CY - py) / S];
+const w = (v: Vec3): Vec3 => [v[0] * K, v[1] * K, v[2] * K];
 
-function GridAxes() {
-  const lines = [];
-  for (let k = -8; k <= 8; k++) {
-    lines.push(
-      <line key={`v${k}`} x1={CX + k * S} y1={0} x2={CX + k * S} y2={H} stroke="#eeebe0" strokeWidth={1} />,
-      <line key={`h${k}`} x1={0} y1={CY + k * S} x2={W} y2={CY + k * S} stroke="#eeebe0" strokeWidth={1} />,
+/** Intersect the pointer ray with the math z=0 plane (= three world Y=0). */
+function pickPlane(e: {
+  ray: { origin: { x: number; y: number; z: number }; direction: { x: number; y: number; z: number } };
+}): Vec3 {
+  const o = e.ray.origin;
+  const d = e.ray.direction;
+  const t = Math.abs(d.y) > 1e-6 ? -o.y / d.y : 0;
+  const hx = o.x + t * d.x;
+  const hz = o.z + t * d.z;
+  // world (three, y-up) -> math (z-up), then undo the K scale
+  return [hx / K, -hz / K, 0];
+}
+
+const snap = (v: Vec3): Vec3 => [
+  Math.max(-GLIM, Math.min(GLIM, Math.round(v[0] * 20) / 20)),
+  Math.max(-GLIM, Math.min(GLIM, Math.round(v[1] * 20) / 20)),
+  0,
+];
+
+/** Faint grid + red x-axis / green y-axis in the working plane. */
+function PlaneAxes() {
+  const grid = [];
+  for (let k = -GLIM; k <= GLIM; k++) {
+    grid.push(
+      <Line key={`gx${k}`} points={[w([k, -GLIM, 0]), w([k, GLIM, 0])]} color="#e3ded0" lineWidth={1} />,
+      <Line key={`gy${k}`} points={[w([-GLIM, k, 0]), w([GLIM, k, 0])]} color="#e3ded0" lineWidth={1} />,
     );
   }
   return (
-    <g>
-      {lines}
-      <line x1={0} y1={CY} x2={W} y2={CY} stroke="#c9c5b8" strokeWidth={1.5} />
-      <line x1={CX} y1={0} x2={CX} y2={H} stroke="#c9c5b8" strokeWidth={1.5} />
-      <text x={W - 14} y={CY - 8} textAnchor="end" fontFamily="Inter, sans-serif" fontSize="12" fill="#8a8a9b">
-        x
-      </text>
-      <text x={CX + 10} y={16} fontFamily="Inter, sans-serif" fontSize="12" fill="#8a8a9b">
-        y
-      </text>
-    </g>
+    <group>
+      {grid}
+      <Line points={[w([-GLIM, 0, 0]), w([GLIM, 0, 0])]} color={RED} lineWidth={1.8} transparent opacity={0.6} />
+      <Line points={[w([0, -GLIM, 0]), w([0, GLIM, 0])]} color={GREEN} lineWidth={1.8} transparent opacity={0.6} />
+      <AxisLabel at={[GLIM + 0.35, 0, 0]} text="x" color={RED} />
+      <AxisLabel at={[0, GLIM + 0.35, 0]} text="y" color={GREEN} />
+    </group>
   );
 }
 
-function VArrow({
-  tip,
-  color,
-  width = 4,
-  dash,
-  label,
-}: {
-  tip: [number, number];
-  color: string;
-  width?: number;
-  dash?: string;
-  label?: string;
-}) {
-  const [tx, ty] = toPx(tip[0], tip[1]);
-  const dx = tx - CX;
-  const dy = ty - CY;
-  const len = Math.hypot(dx, dy);
-  if (len < 4) return null;
-  const ux = dx / len;
-  const uy = dy / len;
-  const bx = tx - ux * 10;
-  const by = ty - uy * 10;
+/** Bold non-italic axis label pinned to an axis tip. */
+function AxisLabel({ at, text, color }: { at: Vec3; text: string; color: string }) {
   return (
-    <g>
-      <line x1={CX} y1={CY} x2={bx} y2={by} stroke={color} strokeWidth={width} strokeDasharray={dash} />
-      <path d={`M ${tx} ${ty} L ${bx - uy * 5} ${by + ux * 5} L ${bx + uy * 5} ${by - ux * 5} Z`} fill={color} />
-      {label && (
-        <text
-          x={tx + ux * 16}
-          y={ty + uy * 16 + 4}
-          textAnchor="middle"
-          fontFamily="Inter, sans-serif"
-          fontSize="14"
-          fontWeight="700"
-          fill={color}
-        >
-          {label}
-        </text>
-      )}
-    </g>
+    <Html position={w(at)} center distanceFactor={9} style={{ pointerEvents: "none" }}>
+      <span style={{ font: "700 14px Inter, sans-serif", color, whiteSpace: "nowrap" }}>{text}</span>
+    </Html>
+  );
+}
+
+/** A draggable tip handle in the z=0 plane. */
+function DragTip({ p, color, onDrag }: { p: Vec3; color: string; onDrag: (m: Vec3) => void }) {
+  const dragging = useRef(false);
+  const controls = useThree(s => s.controls) as unknown as { enabled: boolean } | null;
+  return (
+    <mesh
+      position={w(p)}
+      onPointerDown={e => {
+        e.stopPropagation();
+        dragging.current = true;
+        if (controls) controls.enabled = false;
+        (e.target as Element).setPointerCapture?.(e.pointerId);
+      }}
+      onPointerUp={() => {
+        dragging.current = false;
+        if (controls) controls.enabled = true;
+      }}
+      onPointerMove={e => {
+        if (!dragging.current) return;
+        e.stopPropagation();
+        onDrag(pickPlane(e));
+      }}
+    >
+      <sphereGeometry args={[0.12, 20, 20]} />
+      <meshStandardMaterial color={color} transparent opacity={0.5} />
+    </mesh>
+  );
+}
+
+/** Small italic label pinned to a world point. */
+function Tag({ at, text, color }: { at: Vec3; text: string; color: string }) {
+  return (
+    <Html position={w(at)} center distanceFactor={9} style={{ pointerEvents: "none" }}>
+      <span
+        style={{
+          font: "italic 700 15px Georgia, serif",
+          color,
+          transform: "translate(12px,-12px)",
+          display: "inline-block",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {text}
+      </span>
+    </Html>
+  );
+}
+
+/** A small wireframe target sphere at a math point. */
+function Target({ at, met }: { at: Vec3; met: boolean }) {
+  return (
+    <mesh position={w(at)}>
+      <sphereGeometry args={[0.13, 18, 14]} />
+      <meshBasicMaterial color={met ? GREEN : "#cdb96e"} wireframe transparent opacity={met ? 0.55 : 0.35} />
+    </mesh>
+  );
+}
+
+/** Component shadows of a single vector onto the two axes. */
+function Shadows({ v }: { v: Vec3 }) {
+  const tip = w(v);
+  const px = w([v[0], 0, 0]);
+  const py = w([0, v[1], 0]);
+  return (
+    <group>
+      <Line points={[[0, 0, 0], px]} color={RED} lineWidth={4.5} />
+      <Line points={[[0, 0, 0], py]} color={GREEN} lineWidth={4.5} />
+      <Line points={[tip, px]} color={RED} lineWidth={1.4} dashed dashSize={0.1} gapSize={0.07} />
+      <Line points={[tip, py]} color={GREEN} lineWidth={1.4} dashed dashSize={0.1} gapSize={0.07} />
+    </group>
   );
 }
 
@@ -89,84 +150,34 @@ function VArrow({
 // Widget 1: anatomy of a single vector — components as shadows
 // ------------------------------------------------------------------
 function VectorAnatomy() {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const [v, setV] = useState<[number, number]>([4, 2.5]);
-  const dragging = useRef(false);
-
-  const mag = Math.hypot(v[0], v[1]);
-  const angDeg = (Math.atan2(v[1], v[0]) * 180) / Math.PI;
-
-  const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (!dragging.current || !svgRef.current) return;
-    const [px, py] = svgCoords(e, svgRef.current, W, H);
-    const [x, y] = fromPx(px, py);
-    setV([Math.round(x * 20) / 20, Math.round(y * 20) / 20]);
-  };
-
-  const [tx, ty] = toPx(v[0], v[1]);
-  const target: [number, number] = [-3, 4];
-  const [tgx, tgy] = toPx(target[0], target[1]);
+  const [v, setV] = useState<Vec3>([4, 2.5, 0]);
+  const mag = vnorm(v);
+  const angDeg = deg(Math.atan2(v[1], v[0]));
+  const target: Vec3 = [-3, 4, 0];
   const met = Math.abs(v[0] - target[0]) < 0.15 && Math.abs(v[1] - target[1]) < 0.15;
 
   return (
     <>
       <WidgetShell
         title="Anatomy of a vector — drag the tip"
-        onReset={() => setV([4, 2.5])}
+        onReset={() => setV([4, 2.5, 0])}
         caption={
           <>
             The dashed drops are the vector's <em>shadows</em> on the two axes — its components.
-            Length and angle on one side, components on the other: two descriptions of one arrow.
+            Drag the purple ball in the plane; <em>orbit</em> the scene (drag the background) to
+            confirm the arrow really is flat. Length and angle on one side, components on the other:
+            two descriptions of one arrow.
           </>
         }
       >
-        <svg
-          ref={svgRef}
-          viewBox={`0 0 ${W} ${H}`}
-          className="block w-full rounded-lg bg-[#fbfaf7] touch-none select-none"
-          onPointerMove={onMove}
-          onPointerUp={() => (dragging.current = false)}
-          onPointerLeave={() => (dragging.current = false)}
-        >
-          <GridAxes />
-
-          {/* target cross for the challenge */}
-          <g stroke={GREEN} strokeWidth={2} opacity={met ? 1 : 0.55}>
-            <line x1={tgx - 8} y1={tgy - 8} x2={tgx + 8} y2={tgy + 8} />
-            <line x1={tgx - 8} y1={tgy + 8} x2={tgx + 8} y2={tgy - 8} />
-          </g>
-          <text x={tgx + 12} y={tgy - 10} fontFamily="Inter, sans-serif" fontSize="11" fill={GREEN}>
-            target (−3, 4)
-          </text>
-
-          {/* component shadows */}
-          <line x1={tx} y1={ty} x2={tx} y2={CY} stroke={RED} strokeWidth={2} strokeDasharray="5 4" />
-          <line x1={tx} y1={ty} x2={CX} y2={ty} stroke={GREEN} strokeWidth={2} strokeDasharray="5 4" />
-          <line x1={CX} y1={CY} x2={tx} y2={CY} stroke={RED} strokeWidth={5} opacity={0.8} />
-          <line x1={CX} y1={CY} x2={CX} y2={ty} stroke={GREEN} strokeWidth={5} opacity={0.8} />
-          <text x={(CX + tx) / 2} y={CY + (ty > CY ? -8 : 18)} textAnchor="middle" fontFamily="Inter, sans-serif" fontSize="12" fontWeight="600" fill={RED}>
-            v<tspan fontSize="9" dy="2">x</tspan> = {v[0].toFixed(2)}
-          </text>
-          <text x={CX + (tx > CX ? -8 : 8)} y={(CY + ty) / 2} textAnchor={tx > CX ? "end" : "start"} fontFamily="Inter, sans-serif" fontSize="12" fontWeight="600" fill={GREEN}>
-            v<tspan fontSize="9" dy="2">y</tspan> = {v[1].toFixed(2)}
-          </text>
-
-          <VArrow tip={v} color={PURPLE} label="v" />
-
-          {/* drag handle */}
-          <circle
-            cx={tx}
-            cy={ty}
-            r={13}
-            fill={PURPLE}
-            opacity={0.25}
-            className="cursor-grab"
-            onPointerDown={e => {
-              dragging.current = true;
-              (e.target as Element).setPointerCapture?.(e.pointerId);
-            }}
-          />
-        </svg>
+        <Scene3D camera={[3.4, 3.0, 4.4]} height={400} floor={false}>
+          <PlaneAxes />
+          <Target at={target} met={met} />
+          <Shadows v={v} />
+          <Arrow dir={v} length={mag * K} color={PURPLE} thickness={0.028} />
+          <Tag at={v} text="v" color={PURPLE} />
+          <DragTip p={v} color={PURPLE} onDrag={m => setV(snap(m))} />
+        </Scene3D>
         <ControlBar>
           <Readout label="components (vx, vy)" value={`(${v[0].toFixed(2)}, ${v[1].toFixed(2)})`} color={PURPLE} />
           <Readout label="length |v|" value={mag.toFixed(2)} />
@@ -174,8 +185,8 @@ function VectorAnatomy() {
         </ControlBar>
       </WidgetShell>
       <Challenge id="math1-components" met={met}>
-        Drag the tip to the green cross at <M>{"(-3, 4)"}</M>. Check the length readout: you have
-        built a 3–4–5 right triangle, tilted into the second quadrant — length 5 without measuring.
+        Drag the tip to the target at <M>{"(-3, 4)"}</M>. Check the length readout: you have built a
+        3–4–5 right triangle, tilted into the second quadrant — length 5 without measuring.
       </Challenge>
     </>
   );
@@ -187,27 +198,12 @@ function VectorAnatomy() {
 function PolarCartesian() {
   const [r, setR] = useState(5);
   const [thetaDeg, setThetaDeg] = useState(53.13);
-  const theta = (thetaDeg * Math.PI) / 180;
-
+  const theta = rad(thetaDeg);
   const x = r * Math.cos(theta);
   const y = r * Math.sin(theta);
-  const v: [number, number] = [x, y];
+  const v: Vec3 = [x, y, 0];
 
-  const [tx, ty] = toPx(x, y);
-
-  // polar angle arc, drawn from +x axis toward the arrow
-  const arcR = 34;
-  const a0 = 0;
-  const a1 = -theta; // svg y is flipped
-  const large = Math.abs(thetaDeg) > 180 ? 1 : 0;
-  // sweep picks which side of the chord the minor arc sits on; keep it in the
-  // wedge between the +x axis and the arrow so the angle mark stays convex.
-  const sweep = theta >= 0 ? 0 : 1;
-  const arcPath = `M ${CX + arcR} ${CY} A ${arcR} ${arcR} 0 ${large} ${sweep} ${CX + arcR * Math.cos(a1)} ${CY + arcR * Math.sin(a1)}`;
-
-  // challenge: land the tip on (-3, 4) using the polar sliders
-  const target: [number, number] = [-3, 4];
-  const [tgx, tgy] = toPx(target[0], target[1]);
+  const target: Vec3 = [-3, 4, 0];
   const met = Math.abs(x - target[0]) < 0.12 && Math.abs(y - target[1]) < 0.12;
 
   return (
@@ -228,55 +224,33 @@ function PolarCartesian() {
           </>
         }
       >
-        <svg
-          viewBox={`0 0 ${W} ${H}`}
-          className="block w-full rounded-lg bg-[#fbfaf7] touch-none select-none"
-        >
-          <GridAxes />
-
-          {/* target cross */}
-          <g stroke={GREEN} strokeWidth={2} opacity={met ? 1 : 0.55}>
-            <line x1={tgx - 8} y1={tgy - 8} x2={tgx + 8} y2={tgy + 8} />
-            <line x1={tgx - 8} y1={tgy + 8} x2={tgx + 8} y2={tgy - 8} />
-          </g>
-          <text x={tgx + 12} y={tgy - 10} fontFamily="Inter, sans-serif" fontSize="11" fill={GREEN}>
-            target (−3, 4)
-          </text>
-
+        <Scene3D camera={[3.4, 3.0, 4.4]} height={400} floor={false}>
+          <PlaneAxes />
+          <Target at={target} met={met} />
           {/* radius circle the tip rides on */}
-          <circle cx={CX} cy={CY} r={r * S} fill="none" stroke="#e3ddc9" strokeWidth={1.2} strokeDasharray="3 5" />
-
-          {/* Cartesian shadows */}
-          <line x1={tx} y1={ty} x2={tx} y2={CY} stroke={RED} strokeWidth={2} strokeDasharray="5 4" />
-          <line x1={tx} y1={ty} x2={CX} y2={ty} stroke={GREEN} strokeWidth={2} strokeDasharray="5 4" />
-          <line x1={CX} y1={CY} x2={tx} y2={CY} stroke={RED} strokeWidth={5} opacity={0.8} />
-          <line x1={CX} y1={CY} x2={CX} y2={ty} stroke={GREEN} strokeWidth={5} opacity={0.8} />
-
-          {/* polar angle arc */}
-          <path d={arcPath} fill="none" stroke={GOLD} strokeWidth={2.5} />
-          <text
-            x={CX + (arcR + 12) * Math.cos(a1 / 2)}
-            y={CY + (arcR + 12) * Math.sin(a1 / 2) + 4}
-            textAnchor="middle"
-            fontFamily="Inter, sans-serif"
-            fontSize="13"
-            fontWeight="700"
-            fill={GOLD}
-          >
-            θ
-          </text>
-
-          <VArrow tip={v} color={PURPLE} label="v" />
-        </svg>
+          <Line
+            points={Array.from({ length: 97 }, (_, i) => w([r * Math.cos((i / 96) * 2 * Math.PI), r * Math.sin((i / 96) * 2 * Math.PI), 0]))}
+            color="#d8c98f"
+            lineWidth={1.2}
+            dashed
+            dashSize={0.12}
+            gapSize={0.1}
+          />
+          {/* polar angle arc from +x to the arrow */}
+          <AxisArc center={[0, 0, 0]} axis={[0, 0, 1]} radius={0.6} sweep={theta} color={GOLD} lineWidth={3} />
+          <Shadows v={v} />
+          <Arrow dir={v} length={r * K} color={PURPLE} thickness={0.028} />
+          <Tag at={v} text="v" color={PURPLE} />
+        </Scene3D>
         <ControlBar>
-          <LabeledSlider label="r" value={r} min={0.5} max={8} step={0.05} onChange={setR} color={ORANGE} fmt={n => n.toFixed(2)} />
+          <LabeledSlider label="r" value={r} min={0.5} max={GLIM} step={0.05} onChange={setR} color={ORANGE} fmt={n => n.toFixed(2)} />
           <LabeledSlider label="θ" value={thetaDeg} min={-180} max={180} step={0.5} onChange={setThetaDeg} color={GOLD} fmt={n => `${n.toFixed(0)}°`} />
           <Readout label="polar (r, θ)" value={`(${r.toFixed(2)}, ${thetaDeg.toFixed(0)}°)`} color={ORANGE} />
           <Readout label="Cartesian (x, y)" value={`(${x.toFixed(2)}, ${y.toFixed(2)})`} color={PURPLE} />
         </ControlBar>
       </WidgetShell>
       <Challenge id="math1-polar" met={met}>
-        Using only the <M>{"r"}</M> and <M>{"\\theta"}</M> dials, land the tip on the green cross at
+        Using only the <M>{"r"}</M> and <M>{"\\theta"}</M> dials, land the tip on the target at
         Cartesian <M>{"(-3, 4)"}</M>. You will need <M>{"r = 5"}</M> and an angle in the second
         quadrant — proof that the same arrow carries two different-looking addresses.
       </Challenge>
@@ -285,114 +259,244 @@ function PolarCartesian() {
 }
 
 // ------------------------------------------------------------------
-// Widget 3: dot and cross — agreement and turning
+// Widget 3: projection — the shadow, the height, and the right triangle
 // ------------------------------------------------------------------
-function DotCross() {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const [a, setA] = useState<[number, number]>([3.4, 1.2]);
-  const [b, setB] = useState<[number, number]>([1.2, 2.8]);
-  const dragging = useRef<"a" | "b" | null>(null);
+/** Translucent triangle through three math points. */
+function TriangleFill({ p, q, r, color }: { p: Vec3; q: Vec3; r: Vec3; color: string }) {
+  const arr = useMemo(() => new Float32Array([...w(p), ...w(q), ...w(r)]), [p, q, r]);
+  return (
+    <mesh>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[arr, 3]} />
+      </bufferGeometry>
+      <meshBasicMaterial color={color} transparent opacity={0.13} side={2} />
+    </mesh>
+  );
+}
 
-  const dot = a[0] * b[0] + a[1] * b[1];
-  const cross = a[0] * b[1] - a[1] * b[0];
-  const magA = Math.hypot(a[0], a[1]);
-  const magB = Math.hypot(b[0], b[1]);
+/** A little square marking a right angle at `at`, along directions d1 and d2. */
+function RightAngleMark({ at, d1, d2, size = 0.32 }: { at: Vec3; d1: Vec3; d2: Vec3; size?: number }) {
+  if (vnorm(d1) < 1e-6 || vnorm(d2) < 1e-6) return null;
+  const u1 = vunit(d1);
+  const u2 = vunit(d2);
+  const p1 = vadd(at, vscale(u1, size));
+  const p2 = vadd(at, vadd(vscale(u1, size), vscale(u2, size)));
+  const p3 = vadd(at, vscale(u2, size));
+  return <Line points={[w(p1), w(p2), w(p3)]} color="#8a8a9b" lineWidth={1.6} />;
+}
+
+function Projection() {
+  const [a, setA] = useState<Vec3>([3.2, 2.6, 0]);
+  const [b, setB] = useState<Vec3>([4.2, 0.6, 0]);
+
+  const magA = vnorm(a);
+  const magB = vnorm(b);
+  const dot = vdot(a, b);
   const cosT = magA > 1e-6 && magB > 1e-6 ? dot / (magA * magB) : 0;
-  const angDeg = (Math.acos(Math.max(-1, Math.min(1, cosT))) * 180) / Math.PI;
-
-  const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (!dragging.current || !svgRef.current) return;
-    const [px, py] = svgCoords(e, svgRef.current, W, H);
-    const [x, y] = fromPx(px, py);
-    const snapped: [number, number] = [Math.round(x * 20) / 20, Math.round(y * 20) / 20];
-    if (dragging.current === "a") setA(snapped);
-    else setB(snapped);
-  };
-
-  // projection of a onto b
+  const theta = Math.acos(Math.max(-1, Math.min(1, cosT)));
+  const shadowLen = magA * Math.cos(theta); // |a| cos θ
+  const heightLen = magA * Math.sin(theta); // |a| sin θ
   const proj = magB > 1e-6 ? dot / (magB * magB) : 0;
-  const projTip: [number, number] = [b[0] * proj, b[1] * proj];
+  const projTip = vscale(b, proj);
+  const ub = magB > 1e-6 ? vunit(b) : ([1, 0, 0] as Vec3);
 
-  const [ax, ay] = toPx(a[0], a[1]);
-  const [bx, by] = toPx(b[0], b[1]);
-  const [sx, sy] = toPx(a[0] + b[0], a[1] + b[1]);
-  const [pjx, pjy] = toPx(projTip[0], projTip[1]);
+  const met = magA >= 2 && Math.abs(deg(theta) - 45) < 1.5;
+
+  return (
+    <>
+      <WidgetShell
+        title="The shadow — where cos θ and sin θ live"
+        onReset={() => {
+          setA([3.2, 2.6, 0]);
+          setB([4.2, 0.6, 0]);
+        }}
+        caption={
+          <>
+            Drag <span style={{ color: PURPLE }}>a</span>. A light shines straight down onto the line
+            of <span style={{ color: ORANGE }}>b</span>: the <span style={{ color: GOLD }}>gold</span>{" "}
+            segment is <span style={{ color: PURPLE }}>a</span>'s <em>shadow</em>, length{" "}
+            <M>{"|a|\\cos\\theta"}</M>. The <span style={{ color: BLUE }}>blue</span> ray from the tip
+            down to that shadow is the <em>height</em>, length <M>{"|a|\\sin\\theta"}</M>. Together
+            with <span style={{ color: PURPLE }}>a</span> they form one right triangle — cosine is the
+            side along b, sine the side perpendicular to it. The little square marks the right angle.
+          </>
+        }
+      >
+        <Scene3D camera={[3.4, 3.0, 4.4]} height={420} floor={false}>
+          <PlaneAxes />
+          {/* the line of b — the "ground" the shadow falls on */}
+          <Line points={[w(vscale(ub, -GLIM)), w(vscale(ub, GLIM))]} color="#e7cf9a" lineWidth={1.3} />
+          {/* the right triangle: origin -> foot of shadow -> tip of a */}
+          <TriangleFill p={[0, 0, 0]} q={projTip} r={a} color={GOLD} />
+          {/* angle wedge between a and b */}
+          <AxisArc
+            center={[0, 0, 0]}
+            axis={[0, 0, 1]}
+            radius={0.62}
+            start={Math.atan2(a[1], a[0])}
+            sweep={normAngle(Math.atan2(b[1], b[0]) - Math.atan2(a[1], a[0]))}
+            color="#8a8a9b"
+            lineWidth={2.5}
+          />
+          {/* shadow (cos) and height (sin) */}
+          <Line points={[[0, 0, 0], w(projTip)]} color={GOLD} lineWidth={7} />
+          <Line points={[w(a), w(projTip)]} color={BLUE} lineWidth={2.6} dashed dashSize={0.13} gapSize={0.09} />
+          <RightAngleMark at={projTip} d1={vsub([0, 0, 0], projTip)} d2={vsub(a, projTip)} />
+
+          <Arrow dir={a} length={magA * K} color={PURPLE} thickness={0.03} />
+          <Arrow dir={b} length={magB * K} color={ORANGE} thickness={0.026} />
+          <Tag at={a} text="a" color={PURPLE} />
+          <Tag at={b} text="b" color={ORANGE} />
+          <Tag at={vscale(projTip, 0.5)} text="|a|cos θ" color={GOLD} />
+          <Tag at={vscale(vadd(a, projTip), 0.5)} text="|a|sin θ" color={BLUE} />
+
+          <DragTip p={a} color={PURPLE} onDrag={m => setA(snap(m))} />
+          <DragTip p={b} color={ORANGE} onDrag={m => setB(snap(m))} />
+        </Scene3D>
+        <ControlBar>
+          <Readout label="angle θ" value={`${deg(theta).toFixed(1)}°`} />
+          <Readout label="|a|" value={magA.toFixed(2)} color={PURPLE} />
+          <Readout label="shadow = |a|cos θ" value={shadowLen.toFixed(2)} color={GOLD} />
+          <Readout label="height = |a|sin θ" value={heightLen.toFixed(2)} color={BLUE} />
+        </ControlBar>
+      </WidgetShell>
+      <Challenge id="math1-shadow" met={met}>
+        Keep <M>{"\\mathbf{a}"}</M> at length 2 or more and rotate it until its{" "}
+        <span style={{ color: GOLD }}>shadow</span> and its <span style={{ color: BLUE }}>height</span>{" "}
+        are equal. They match at exactly <M>{"\\theta = 45^\\circ"}</M> — the one angle where{" "}
+        <M>{"\\cos\\theta = \\sin\\theta"}</M>, so the part of <M>{"\\mathbf{a}"}</M> along{" "}
+        <M>{"\\mathbf{b}"}</M> equals the part standing perpendicular to it.
+      </Challenge>
+    </>
+  );
+}
+
+// ------------------------------------------------------------------
+// Widget 4: dot and cross — agreement, turning, and why order flips
+// ------------------------------------------------------------------
+function Parallelogram({ a, b, positive }: { a: Vec3; b: Vec3; positive: boolean }) {
+  const arr = useMemo(() => {
+    const O: Vec3 = [0, 0, 0];
+    const A = w(a);
+    const AB = w(vadd(a, b));
+    const B = w(b);
+    return new Float32Array([...O, ...A, ...AB, ...O, ...AB, ...B]);
+  }, [a, b]);
+  return (
+    <mesh>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[arr, 3]} />
+      </bufferGeometry>
+      <meshBasicMaterial color={positive ? GREEN : RED} transparent opacity={0.15} side={2} />
+    </mesh>
+  );
+}
+
+function DotCross() {
+  const [a, setA] = useState<Vec3>([3.4, 1.2, 0]);
+  const [b, setB] = useState<Vec3>([1.2, 2.8, 0]);
+  const [order, setOrder] = useState<"ab" | "ba">("ab");
+
+  const dot = vdot(a, b);
+  const crossAB = a[0] * b[1] - a[1] * b[0];
+  const magA = vnorm(a);
+  const magB = vnorm(b);
+  const cosT = magA > 1e-6 && magB > 1e-6 ? dot / (magA * magB) : 0;
+  const angDeg = deg(Math.acos(Math.max(-1, Math.min(1, cosT))));
+
+  // projection (shadow) of a onto b — the cosine piece
+  const proj = magB > 1e-6 ? dot / (magB * magB) : 0;
+  const projTip = vscale(b, proj);
+
+  // signed cross for the chosen order, drawn as a real vertical vector
+  const signed = order === "ab" ? crossAB : -crossAB;
+  const lenZ = Math.min(3, Math.abs(crossAB) * K * 0.55);
+  const zdir: Vec3 = [0, 0, signed >= 0 ? 1 : -1];
 
   const perpMet = Math.abs(dot) < 0.15 && magA >= 2 && magB >= 2;
-
-  const handle = (which: "a" | "b", x: number, y: number, color: string) => (
-    <circle
-      cx={x}
-      cy={y}
-      r={13}
-      fill={color}
-      opacity={0.25}
-      className="cursor-grab"
-      onPointerDown={e => {
-        dragging.current = which;
-        (e.target as Element).setPointerCapture?.(e.pointerId);
-      }}
-    />
-  );
 
   return (
     <>
       <WidgetShell
         title="Two arrows — agreement and turning"
         onReset={() => {
-          setA([3.4, 1.2]);
-          setB([1.2, 2.8]);
+          setA([3.4, 1.2, 0]);
+          setB([1.2, 2.8, 0]);
+          setOrder("ab");
         }}
         caption={
           <>
-            Drag both tips. The shaded parallelogram's area is the size of the cross product; the
-            gold segment along <span style={{ color: ORANGE }}>b</span> is the shadow of{" "}
-            <span style={{ color: PURPLE }}>a</span> — the geometric meaning of the dot product.
+            Drag both tips in the plane. The <span style={{ color: GOLD }}>gold</span> segment along{" "}
+            <span style={{ color: ORANGE }}>b</span> is <span style={{ color: PURPLE }}>a</span>'s
+            shadow — length <M>{"|a|\\cos\\theta"}</M>, the dot product. The dashed rise is the
+            height <M>{"|a|\\sin\\theta"}</M>; base <M>{"\\times"}</M> height fills the parallelogram,
+            whose area is the cross product. The <span style={{ color: BLUE }}>blue</span> arrow is
+            that cross product as a real 3-D vector — hit <em>swap</em> and watch it flip.
           </>
         }
       >
-        <svg
-          ref={svgRef}
-          viewBox={`0 0 ${W} ${H}`}
-          className="block w-full rounded-lg bg-[#fbfaf7] touch-none select-none"
-          onPointerMove={onMove}
-          onPointerUp={() => (dragging.current = null)}
-          onPointerLeave={() => (dragging.current = null)}
-        >
-          <GridAxes />
+        <Scene3D camera={[3.2, 3.2, 4.6]} height={420} floor={false}>
+          <PlaneAxes />
+          <Parallelogram a={a} b={b} positive={crossAB >= 0} />
 
-          {/* parallelogram spanned by a and b */}
-          <polygon
-            points={`${CX},${CY} ${ax},${ay} ${sx},${sy} ${bx},${by}`}
-            fill={cross >= 0 ? "#eef7ef" : "#fbeeed"}
-            stroke={cross >= 0 ? "#bfdfc4" : "#eecac6"}
-            strokeWidth={1.5}
+          {/* angle wedge between a and b */}
+          <AxisArc
+            center={[0, 0, 0]}
+            axis={[0, 0, 1]}
+            radius={0.55}
+            start={Math.atan2(a[1], a[0])}
+            sweep={normAngle(Math.atan2(b[1], b[0]) - Math.atan2(a[1], a[0]))}
+            color="#8a8a9b"
+            lineWidth={2.5}
           />
 
-          {/* projection of a onto b */}
-          <line x1={ax} y1={ay} x2={pjx} y2={pjy} stroke="#b8b4a6" strokeWidth={1.5} strokeDasharray="4 4" />
-          <line x1={CX} y1={CY} x2={pjx} y2={pjy} stroke={GOLD} strokeWidth={6} opacity={0.85} />
+          {/* a's shadow on b (cosine) + the perpendicular height (sine) */}
+          <Line points={[[0, 0, 0], w(projTip)]} color={GOLD} lineWidth={6} />
+          <Line points={[w(a), w(projTip)]} color="#9a93a8" lineWidth={1.6} dashed dashSize={0.1} gapSize={0.07} />
 
-          <VArrow tip={a} color={PURPLE} label="a" />
-          <VArrow tip={b} color={ORANGE} label="b" />
+          <Arrow dir={a} length={magA * K} color={PURPLE} thickness={0.028} />
+          <Arrow dir={b} length={magB * K} color={ORANGE} thickness={0.028} />
+          <Tag at={a} text="a" color={PURPLE} />
+          <Tag at={b} text="b" color={ORANGE} />
 
-          {handle("a", ax, ay, PURPLE)}
-          {handle("b", bx, by, ORANGE)}
-        </svg>
+          {/* the cross product as a vertical vector */}
+          {lenZ > 0.03 && <Arrow dir={zdir} length={lenZ} color={BLUE} thickness={0.03} />}
+          {lenZ > 0.03 && (
+            <Tag at={[0, 0, (signed >= 0 ? lenZ : -lenZ) / K]} text={order === "ab" ? "a × b" : "b × a"} color={BLUE} />
+          )}
+
+          <DragTip p={a} color={PURPLE} onDrag={m => setA(snap(m))} />
+          <DragTip p={b} color={ORANGE} onDrag={m => setB(snap(m))} />
+        </Scene3D>
         <ControlBar>
+          <WidgetButton active={order === "ab"} onClick={() => setOrder("ab")}>
+            show a × b
+          </WidgetButton>
+          <WidgetButton active={order === "ba"} onClick={() => setOrder("ba")}>
+            swap to b × a
+          </WidgetButton>
           <Readout label="a · b (dot)" value={dot.toFixed(2)} color={dot > 0.15 ? GREEN : dot < -0.15 ? RED : GOLD} />
-          <Readout label="a × b (cross)" value={cross.toFixed(2)} />
+          <Readout label="a × b" value={crossAB.toFixed(2)} color={BLUE} />
+          <Readout label="b × a" value={(-crossAB).toFixed(2)} color={BLUE} />
           <Readout label="angle between" value={`${angDeg.toFixed(1)}°`} />
-          <Readout label="|a|, |b|" value={`${magA.toFixed(2)}, ${magB.toFixed(2)}`} />
         </ControlBar>
       </WidgetShell>
       <Challenge id="math1-perp" met={perpMet}>
         Keep both arrows at length 2 or more and make the dot product (essentially) zero:{" "}
-        <M>{"|\\mathbf{a}\\cdot\\mathbf{b}| < 0.15"}</M>. Look at the angle readout when you succeed —
-        you have discovered the perpendicularity test.
+        <M>{"|\\mathbf{a}\\cdot\\mathbf{b}| < 0.15"}</M>. The gold shadow shrinks to nothing while the
+        parallelogram is at its fattest — you have found the perpendicularity test, the exact opposite
+        of where the cross product vanishes.
       </Challenge>
     </>
   );
+}
+
+/** Wrap an angle difference into (−π, π]. */
+function normAngle(x: number): number {
+  let a = x;
+  while (a > Math.PI) a -= 2 * Math.PI;
+  while (a <= -Math.PI) a += 2 * Math.PI;
+  return a;
 }
 
 export default function MathVectors() {
@@ -444,7 +548,8 @@ export default function MathVectors() {
       <p>
         Read those slowly once: cosine answers <em>"how much of the arrow points along x?"</em>{" "}
         and sine answers <em>"how much points along y?"</em> That is all sine and cosine will
-        ever do in this course.
+        ever do in this course — and, as you will see below, it is <em>also</em> all they do
+        inside the dot and cross products.
       </p>
       <Aside>
         <M>{"\\operatorname{atan2}(v_y, v_x)"}</M> is the two-argument arctangent every robotics
@@ -456,9 +561,9 @@ export default function MathVectors() {
       <p>
         <strong>Try this</strong> in the widget below: drag the tip so the arrow points steeply
         up-left and watch the <span className="cx">red</span> shadow go negative while the{" "}
-        <span className="cy">green</span> one stays positive. Then sweep the tip around a full
-        circle at constant length and watch the two shadows trade places — that trade-off{" "}
-        <em>is</em> sine and cosine.
+        <span className="cy">green</span> one stays positive. Then orbit the camera and confirm the
+        arrow lies flat in the floor plane — everything on this page happens in that plane until the
+        cross product lifts us out of it.
       </p>
 
       <VectorAnatomy />
@@ -567,35 +672,63 @@ export default function MathVectors() {
         they are exactly perpendicular, <strong>negative</strong> means they oppose each other.
       </p>
 
-      <Worked title="Where the dot product comes from — deriving |a||b|cos θ">
+      <Worked title="Where cos θ comes from — the shadow, not the law of cosines">
         <p>
-          Why should the tidy sum <M>{"a_x b_x + a_y b_y"}</M> equal the geometric{" "}
-          <M>{"|\\mathbf{a}||\\mathbf{b}|\\cos\\theta"}</M>? Start from the picture and let the{" "}
-          <strong>law of cosines</strong> do the work. Place <M>{"\\mathbf{a}"}</M> and{" "}
-          <M>{"\\mathbf{b}"}</M> tail-to-tail; the third side of the triangle is{" "}
-          <M>{"\\mathbf{b} - \\mathbf{a}"}</M>, and the law of cosines relates the three lengths:
+          The usual "derivation" of <M>{"|\\mathbf{a}||\\mathbf{b}|\\cos\\theta"}</M> quotes the law
+          of cosines — but that law <em>already contains</em> a cosine, so it never tells you where
+          the cosine was born. Let us build it from nothing but a right triangle.
         </p>
-        <Eq>{"|\\mathbf{b} - \\mathbf{a}|^2 = |\\mathbf{a}|^2 + |\\mathbf{b}|^2 - 2\\,|\\mathbf{a}||\\mathbf{b}|\\cos\\theta."}</Eq>
         <p>
-          Now expand that same left side using <em>components</em>, since{" "}
-          <M>{"\\mathbf{b}-\\mathbf{a} = (b_x-a_x,\\,b_y-a_y)"}</M>:
+          Stand <M>{"\\mathbf{a}"}</M> and <M>{"\\mathbf{b}"}</M> tail-to-tail and drop a
+          perpendicular from the tip of <M>{"\\mathbf{a}"}</M> straight down onto the line carrying{" "}
+          <M>{"\\mathbf{b}"}</M>. That splits <M>{"\\mathbf{a}"}</M> into two pieces at a right
+          angle: a piece <em>lying along</em> <M>{"\\mathbf{b}"}</M>, and a leftover piece{" "}
+          <em>perpendicular</em> to it. Look at the triangle you just made — hypotenuse{" "}
+          <M>{"|\\mathbf{a}|"}</M>, enclosed angle <M>{"\\theta"}</M>. By the <em>definition</em> of
+          cosine, adjacent over hypotenuse, the along-<M>{"\\mathbf{b}"}</M> piece has length
         </p>
-        <Eq>{"|\\mathbf{b}-\\mathbf{a}|^2 = (b_x-a_x)^2 + (b_y-a_y)^2 = \\underbrace{(a_x^2+a_y^2)}_{|\\mathbf{a}|^2} + \\underbrace{(b_x^2+b_y^2)}_{|\\mathbf{b}|^2} - 2(a_x b_x + a_y b_y)."}</Eq>
+        <Eq>{"\\text{(shadow of }\\mathbf{a}\\text{ on }\\mathbf{b}) = |\\mathbf{a}|\\cos\\theta."}</Eq>
         <p>
-          Set the two expressions equal. The <M>{"|\\mathbf{a}|^2"}</M> and{" "}
-          <M>{"|\\mathbf{b}|^2"}</M> cancel from both sides, and what is left, after dividing by{" "}
-          <M>{"-2"}</M>, is exactly
+          <em>That</em> is where the cosine comes from — not a theorem, but the ratio of sides in a
+          right triangle. Cosine measures the fraction of <M>{"\\mathbf{a}"}</M> that survives the
+          projection onto <M>{"\\mathbf{b}"}</M>. Now simply <em>define</em> the dot product as "how
+          long is <M>{"\\mathbf{b}"}</M>, times how much of <M>{"\\mathbf{a}"}</M> runs along it":
         </p>
-        <Eq>{"a_x b_x + a_y b_y = |\\mathbf{a}||\\mathbf{b}|\\cos\\theta. \\qquad\\blacksquare"}</Eq>
+        <Eq>{"\\mathbf{a}\\cdot\\mathbf{b} = |\\mathbf{b}|\\cdot\\big(|\\mathbf{a}|\\cos\\theta\\big) = |\\mathbf{a}||\\mathbf{b}|\\cos\\theta."}</Eq>
         <p>
-          The <em>projection</em> reading falls out for free: group the right side as{" "}
-          <M>{"\\big(|\\mathbf{a}|\\cos\\theta\\big)\\,|\\mathbf{b}|"}</M>. The bracket is the length
-          of <M>{"\\mathbf{a}"}</M>'s shadow cast straight down onto the line of{" "}
-          <M>{"\\mathbf{b}"}</M> — so the dot product is <em>that shadow times the length of{" "}
-          <M>{"\\mathbf{b}"}</M></em>, precisely the "length of the shadow" picture you already
-          had.
+          It is symmetric — projecting <M>{"\\mathbf{b}"}</M> onto <M>{"\\mathbf{a}"}</M> instead
+          gives <M>{"|\\mathbf{a}|\\cdot|\\mathbf{b}|\\cos\\theta"}</M>, the same number, which is
+          why <M>{"\\mathbf{a}\\cdot\\mathbf{b} = \\mathbf{b}\\cdot\\mathbf{a}"}</M>.
+        </p>
+        <p>
+          To recover the tidy component sum, use one fact: a shadow of a <em>sum</em> is the sum of
+          the shadows, so the dot product distributes across addition. Write each arrow in the
+          perpendicular unit vectors <M>{"\\hat{\\mathbf{x}}, \\hat{\\mathbf{y}}"}</M> and expand,
+          using <M>{"\\hat{\\mathbf{x}}\\cdot\\hat{\\mathbf{x}} = \\hat{\\mathbf{y}}\\cdot\\hat{\\mathbf{y}} = 1"}</M>{" "}
+          (an arrow's full shadow on itself) and <M>{"\\hat{\\mathbf{x}}\\cdot\\hat{\\mathbf{y}} = 0"}</M>{" "}
+          (perpendicular axes cast no shadow on each other):
+        </p>
+        <Eq>{"\\mathbf{a}\\cdot\\mathbf{b} = (a_x\\hat{\\mathbf{x}} + a_y\\hat{\\mathbf{y}})\\cdot(b_x\\hat{\\mathbf{x}} + b_y\\hat{\\mathbf{y}}) = a_x b_x + a_y b_y. \\qquad\\blacksquare"}</Eq>
+        <p>
+          Two faces of one number: <M>{"a_x b_x + a_y b_y"}</M> to compute,{" "}
+          <M>{"|\\mathbf{a}||\\mathbf{b}|\\cos\\theta"}</M> to picture. (The law-of-cosines route
+          reaches the same place — expand <M>{"|\\mathbf{b}-\\mathbf{a}|^2"}</M> two ways and the
+          cross-term is <M>{"-2(a_x b_x + a_y b_y) = -2|\\mathbf{a}||\\mathbf{b}|\\cos\\theta"}</M> —
+          but now you can see that its cosine was this same shadow all along.)
         </p>
       </Worked>
+
+      <p>
+        See it happen. In the widget below, a light shines perpendicular onto the line of{" "}
+        <M>{"\\mathbf{b}"}</M> and <M>{"\\mathbf{a}"}</M> casts a <span style={{ color: GOLD }}>gold
+        shadow</span> of length <M>{"|\\mathbf{a}|\\cos\\theta"}</M>. Drag <M>{"\\mathbf{a}"}</M>{" "}
+        upright and the shadow shrinks; lay it along <M>{"\\mathbf{b}"}</M> and the shadow grows to
+        the full length of <M>{"\\mathbf{a}"}</M>. The <span style={{ color: BLUE }}>blue height</span>{" "}
+        is the leftover perpendicular piece, <M>{"|\\mathbf{a}|\\sin\\theta"}</M> — the same right
+        triangle, seen live.
+      </p>
+
+      <Projection />
 
       <p>
         This one operation shows up everywhere in robotics. Mechanical power is{" "}
@@ -630,27 +763,52 @@ export default function MathVectors() {
         at all.
       </KeyIdea>
 
-      <Worked title="Where the cross product comes from — deriving |a||b|sin θ">
+      <Worked title="Where sin θ comes from — the height, and why order flips the sign">
         <p>
-          The area of a parallelogram is <em>base × height</em>. Take{" "}
-          <M>{"\\mathbf{a}"}</M> as the base, with length <M>{"|\\mathbf{a}|"}</M>. The height is
-          how far <M>{"\\mathbf{b}"}</M> rises <em>perpendicular</em> to that base — and since{" "}
-          <M>{"\\mathbf{b}"}</M> leaves the base at angle <M>{"\\theta"}</M>, that perpendicular
-          rise is <M>{"|\\mathbf{b}|\\sin\\theta"}</M>. Multiply:
+          Go back to the exact same right triangle. Dropping the perpendicular from{" "}
+          <M>{"\\mathbf{a}"}</M>'s tip onto <M>{"\\mathbf{b}"}</M> gave us the along-piece{" "}
+          <M>{"|\\mathbf{a}|\\cos\\theta"}</M>. The <em>leftover</em> perpendicular piece is the
+          other side of that triangle, and by the definition of sine, opposite over hypotenuse, its
+          length is
         </p>
-        <Eq>{"\\text{area} = \\underbrace{|\\mathbf{a}|}_{\\text{base}}\\cdot\\underbrace{|\\mathbf{b}|\\sin\\theta}_{\\text{height}} = |\\mathbf{a}||\\mathbf{b}|\\sin\\theta."}</Eq>
+        <Eq>{"\\text{(height of }\\mathbf{a}\\text{ above }\\mathbf{b}) = |\\mathbf{a}|\\sin\\theta."}</Eq>
         <p>
-          That is the geometric form. To get the component form, notice{" "}
-          <M>{"\\sin\\theta = \\cos(90^\\circ - \\theta)"}</M> is the dot product of{" "}
-          <M>{"\\mathbf{b}"}</M> with <M>{"\\mathbf{a}"}</M> turned a quarter-turn. Rotating{" "}
+          So sine and cosine are twins born of one triangle: cosine is the part of{" "}
+          <M>{"\\mathbf{a}"}</M> that lies <em>along</em> <M>{"\\mathbf{b}"}</M>, sine is the part
+          that stands <em>perpendicular</em> to it. The area of a parallelogram is{" "}
+          <em>base × height</em>. Take <M>{"\\mathbf{b}"}</M> as the base, length{" "}
+          <M>{"|\\mathbf{b}|"}</M>; the height is precisely that perpendicular rise{" "}
+          <M>{"|\\mathbf{a}|\\sin\\theta"}</M>. Multiply:
+        </p>
+        <Eq>{"\\text{area} = \\underbrace{|\\mathbf{b}|}_{\\text{base}}\\cdot\\underbrace{|\\mathbf{a}|\\sin\\theta}_{\\text{height}} = |\\mathbf{a}||\\mathbf{b}|\\sin\\theta."}</Eq>
+        <p>
+          For the component form, notice the height is what you get by measuring{" "}
+          <M>{"\\mathbf{b}"}</M> against <M>{"\\mathbf{a}"}</M> turned a quarter-turn. Rotating{" "}
           <M>{"\\mathbf{a}=(a_x,a_y)"}</M> by <M>{"90^\\circ"}</M> counter-clockwise gives{" "}
-          <M>{"\\mathbf{a}^{\\perp} = (-a_y,\\, a_x)"}</M>, so
+          <M>{"\\mathbf{a}^{\\perp} = (-a_y,\\, a_x)"}</M>, so the cross product is just a dot
+          product with the turned arrow:
         </p>
         <Eq>{"\\mathbf{a}\\times\\mathbf{b} = \\mathbf{a}^{\\perp}\\!\\cdot\\mathbf{b} = (-a_y)(b_x) + (a_x)(b_y) = a_x b_y - a_y b_x. \\qquad\\blacksquare"}</Eq>
         <p>
-          The same number written two ways: <M>{"a_x b_y - a_y b_x"}</M> to compute,{" "}
-          <M>{"|\\mathbf{a}||\\mathbf{b}|\\sin\\theta"}</M> to picture. (If you have seen
-          determinants, this is just <M>{"\\det\\begin{pmatrix} a_x & b_x \\\\ a_y & b_y \\end{pmatrix}"}</M> — the reason a determinant measures area.)
+          <strong>Why order matters.</strong> Swap to <M>{"\\mathbf{b}\\times\\mathbf{a}"}</M>. The
+          parallelogram is the very same set of points, so its <em>area</em> — the size{" "}
+          <M>{"|\\mathbf{a}||\\mathbf{b}|\\sin\\theta"}</M> — does not change at all. What changes is
+          the <em>sign</em>. Cosine is <em>even</em> (<M>{"\\cos(-\\theta)=\\cos\\theta"}</M>), so
+          the dot product forgets order: <M>{"\\mathbf{a}\\cdot\\mathbf{b} = \\mathbf{b}\\cdot\\mathbf{a}"}</M>.
+          But sine is <em>odd</em> (<M>{"\\sin(-\\theta)=-\\sin\\theta"}</M>): sweeping{" "}
+          <M>{"\\mathbf{a}\\to\\mathbf{b}"}</M> turns through <M>{"+\\theta"}</M>, while{" "}
+          <M>{"\\mathbf{b}\\to\\mathbf{a}"}</M> turns through <M>{"-\\theta"}</M> the other way. So
+        </p>
+        <Eq>{"\\mathbf{b}\\times\\mathbf{a} = -\\,\\mathbf{a}\\times\\mathbf{b}."}</Eq>
+        <p>
+          The cross product does not just record <em>how much</em> two arrows span — it records{" "}
+          <em>which way you turned</em> to sweep the first onto the second. In 3-D that "which way"
+          becomes a direction in space: point your right hand's fingers along the first arrow and
+          curl them toward the second; your thumb is the cross product. Curl{" "}
+          <M>{"\\mathbf{a}\\to\\mathbf{b}"}</M> and the thumb points up; curl{" "}
+          <M>{"\\mathbf{b}\\to\\mathbf{a}"}</M> and it points down — same parallelogram, opposite
+          face. In the widget below, hit <em>swap</em> and watch the blue arrow flip while the
+          shaded area holds perfectly still.
         </p>
       </Worked>
 
@@ -661,33 +819,37 @@ export default function MathVectors() {
         <strong>torque</strong>, and it is a cross product: <M>{"\\boldsymbol{\\tau} = \\mathbf{r}\\times\\mathbf{F}"}</M>,
         where <M>{"\\mathbf{r}"}</M> is the arrow from the pivot to where the force is applied. Only
         the part of <M>{"\\mathbf{F}"}</M> perpendicular to <M>{"\\mathbf{r}"}</M> turns the door —
-        exactly the <M>{"\\sin\\theta"}</M> the cross product measures. So the cross product does
-        not give you a force; it gives you what a force <em>accomplishes rotationally</em>, which
-        is why it governs torque, angular momentum, and every spinning thing in Chapters 3, 5, and
-        12.
+        exactly the <M>{"\\sin\\theta"}</M> the cross product measures. And because order flips the
+        sign, <M>{"\\mathbf{r}\\times\\mathbf{F}"}</M> already encodes <em>which way</em> the door
+        swings. So the cross product does not give you a force; it gives you what a force{" "}
+        <em>accomplishes rotationally</em>, which is why it governs torque, angular momentum, and
+        every spinning thing in Chapters 3, 5, and 12.
       </p>
 
       <p>
-        <strong>Try this</strong> below: make the two arrows perpendicular and watch the dot
-        product hit zero while the parallelogram (cross product) is at its fattest. Then drag
-        them parallel: the parallelogram collapses to nothing while the dot product peaks. The
-        two products are complementary — one's maximum is the other's zero.
+        <strong>Try this</strong> below: make the two arrows perpendicular and watch the gold
+        shadow (dot product) collapse to nothing while the parallelogram is at its fattest. Then
+        drag them parallel: the parallelogram collapses while the shadow is longest. The two
+        products are complementary — one's maximum is the other's zero. Finally, hit <em>swap</em>{" "}
+        and watch <M>{"\\mathbf{b}\\times\\mathbf{a}"}</M> point the opposite way.
       </p>
 
       <DotCross />
 
       <KeyIdea>
-        Dot product = agreement (zero means perpendicular). Cross product = turning, the area
-        of the spanned parallelogram (zero means parallel). Torque — a force's ability to spin
-        something — is a cross product, which is why this pair rules Chapters 3, 5, and 12.
+        Dot product = agreement, an even function that forgets order (zero means perpendicular).
+        Cross product = turning, the signed area of the spanned parallelogram, an odd function that
+        remembers order (<M>{"\\mathbf{b}\\times\\mathbf{a} = -\\mathbf{a}\\times\\mathbf{b}"}</M>;
+        zero means parallel). Torque — a force's ability to spin something — is a cross product,
+        which is why this pair rules Chapters 3, 5, and 12.
       </KeyIdea>
 
       <Aside>
         In 3D the cross product returns a full vector: same magnitude{" "}
         <M>{"|\\mathbf{a}||\\mathbf{b}|\\sin\\theta"}</M>, pointing perpendicular to both inputs
         along your right thumb when your fingers curl from <M>{"\\mathbf{a}"}</M> to{" "}
-        <M>{"\\mathbf{b}"}</M> (the <em>right-hand rule</em>). The plane version above is just
-        the z-component of that vector.
+        <M>{"\\mathbf{b}"}</M> (the <em>right-hand rule</em>). The blue arrow in the widget is exactly
+        that vector; the planar number <M>{"a_x b_y - a_y b_x"}</M> is just its z-component.
       </Aside>
 
       <H2>Three classic traps</H2>
@@ -742,14 +904,14 @@ export default function MathVectors() {
             explain: "Straight-line distance is the magnitude: √(3² + 4²) = 5. Trap 1 avoided.",
           },
           {
-            prompt: <>The cross product of two parallel vectors is…</>,
+            prompt: <>Compared with <M>{"\\mathbf{a}\\times\\mathbf{b}"}</M>, the cross product <M>{"\\mathbf{b}\\times\\mathbf{a}"}</M> is…</>,
             options: [
-              { label: "at its maximum" },
-              { label: "zero", correct: true },
-              { label: "negative" },
-              { label: "equal to the dot product" },
+              { label: "the same number" },
+              { label: "the negative — same size, opposite sign", correct: true },
+              { label: "always zero" },
+              { label: "the dot product" },
             ],
-            explain: "Parallel arrows span no parallelogram — no area, no turning.",
+            explain: "sin θ is odd, so swapping the order flips the sign: b×a = −(a×b). Same parallelogram, opposite turning sense.",
           },
         ]}
       />
